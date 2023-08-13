@@ -1,0 +1,18 @@
+.about_me section > div {
+@apply flex justify-between items-center p-4 m-2 gap-4;
+}
+@media screen and (max-width: 700px) {
+    .about_me section > div {
+        @apply block;
+      }
+      .about_me section div div:first-child img{
+        @apply mb-4 rounded-md shadow-lg;
+      }
+  }
+.about_me section div div:first {
+  flex: 1 1 25%;
+}
+
+.about_me section div div:last-child {
+  flex: 1 1 75%;
+}

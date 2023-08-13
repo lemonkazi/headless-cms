@@ -1,0 +1,21 @@
+.blog section .wp-block-columns {
+  @apply flex gap-4 p-4;
+}
+@media screen and (max-width: 700px) {
+  .blog section .wp-block-columns {
+    @apply block;
+  }
+}
+.blog section .wp-block-columns div {
+  @apply border border-solid border-blue-600 rounded-md flex-auto;
+  flex: 1 1 33%;
+}
+.blog section .wp-block-columns div figure img {
+  @apply min-h-[350px];
+}
+.blog section .wp-block-columns div p {
+  @apply p-4 text-base;
+}
+.blog section .wp-block-columns div p a {
+  @apply text-blue-500 hover:text-blue-700;
+}
