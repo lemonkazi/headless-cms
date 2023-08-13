@@ -25,7 +25,7 @@ export default function Footer() {
 
       <li>
         <Link
-          href="mailto:alagele.ismail@gmail.com"
+          href=""
           className=" hover:fill-blue-500"
         >
           <svg

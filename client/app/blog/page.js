@@ -2,7 +2,7 @@ import "./style.css";
 import getData from "../utils/fetch";
 
 export default async function Blog() {
-  const data = await getData(68);
+  const data = await getData(2);
   return (
     <main className={`mt-4 pb-6 ${data.title.rendered.toLowerCase()}`}>
       <h1

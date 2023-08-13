@@ -2,7 +2,7 @@ import "./page.css";
 import getData from "./utils/fetch";
 
 export default async function Home() {
-  const data = await getData(66);
+  const data = await getData(2);
   return (
     <main className={`mt-4 pb-6 ${data.title.rendered.toLowerCase()}`}>
       <h1

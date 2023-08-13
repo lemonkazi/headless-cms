@@ -3,7 +3,7 @@ export default async function getData(pageId) {
   const path = url.toString();
   const res = await fetch(path);
 
-  if (!res.ok) {
+  if (!res) {
     throw new Error("api is not here");
   }
   return res.json();
