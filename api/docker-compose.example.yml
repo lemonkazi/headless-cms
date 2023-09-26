@@ -5,13 +5,13 @@ br_wp:
  ports:
   - 8080:80
  volumes:
-  - ~/www/next-wp-rest/api:/var/www/html:delegated # NOTE: may need to change this path to match your enviroment
+  - .:/var/www/html # NOTE: may need to change this path to match your enviroment
 br_wp_db:
  image: mariadb
  environment:
   MYSQL_ROOT_PASSWORD: examplepass
  volumes:
-  - ~/www/next-wp-rest/api/.database:/var/lib/mysql:delegated # NOTE: may need to change this path to match your enviroment
+  - mysql-data:/var/lib/mysql # NOTE: may need to change this path to match your enviroment
 br_phpmyadmin:
  image: corbinu/docker-phpmyadmin
  links:
