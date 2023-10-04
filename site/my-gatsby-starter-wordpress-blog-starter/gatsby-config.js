@@ -5,8 +5,16 @@
  * https://www.gatsbyjs.com/docs/gatsby-config/
  *
  */
-
+require("dotenv").config({
+  path: `.env.${process.env.NODE_ENV}`,
+})
 module.exports = {
+  siteMetadata: {
+    title: `Gatsby Default Starter`,
+    description: `Kick off your next, great Gatsby project with this default starter. This barebones starter ships with the main Gatsby configuration files you might need.`,
+    author: `@gatsbyjs`,
+    siteUrl: "https://orelhassid-gatsby-elementor.netlify.app",
+  },
   /**
    * Adding plugins to this array adds them to your Gatsby site.
    *
@@ -14,6 +22,26 @@ module.exports = {
    * If you need any more you can search here: https://www.gatsbyjs.com/plugins/
    */
   plugins: [
+    {
+			resolve: `gatsby-source-graphql`,
+			options: {
+				// This type will contain remote schema Query type
+				typeName: `WordPress`,
+				// This is field under which it's accessible
+				fieldName: `WordPress`,
+				// Url to query from
+				url:
+          process.env.WPGRAPHQL_URL ||
+          `http://localhost:8080/graphql`,
+				refetchInterval: 6000,
+			},
+		},
+    // {
+    //   resolve: "gatsby-wordpress-theme-phoenix",
+    //   options: {
+    //     wordPressUrl: process.env.GATSBY_WORDPRESS_SITE_URL,
+    //   },
+    // },
     {
       /**
        * First up is the WordPress source plugin that connects Gatsby
@@ -40,6 +68,10 @@ module.exports = {
      */
     {
       resolve: `gatsby-source-filesystem`,
+      // options: {
+      //   name: `images`,
+      //   path: `${__dirname}/src/images`,
+      // },
       options: {
         name: `assets`,
         path: `${__dirname}/content/assets`,
