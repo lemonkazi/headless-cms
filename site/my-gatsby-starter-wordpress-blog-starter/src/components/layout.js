@@ -2,6 +2,14 @@ import React from "react"
 import { Link, useStaticQuery, graphql } from "gatsby"
 import parse from "html-react-parser"
 
+// We're using Gutenberg so we need the block styles
+// these are copied into this project due to a conflict in the postCSS
+// version used by the Gatsby and @wordpress packages that causes build
+// failures.
+// @todo update this once @wordpress upgrades their postcss version
+import "../css/@wordpress/block-library/build-style/style.css"
+import "../css/@wordpress/block-library/build-style/theme.css"
+
 const Layout = ({ isHomePage, children }) => {
   const {
     wp: {
@@ -19,8 +27,8 @@ const Layout = ({ isHomePage, children }) => {
   `)
 
   return (
-    <div className="global-wrapper" data-is-root-path={isHomePage}>
-      <header className="global-header">
+    <div className="wp-site-blocks" data-is-root-path={isHomePage}>
+      <header className="wp-block-template-part">
         {isHomePage ? (
           <h1 className="main-heading">
             <Link to="/">{parse(title)}</Link>
@@ -32,7 +40,9 @@ const Layout = ({ isHomePage, children }) => {
         )}
       </header>
 
-      <main>{children}</main>
+      <main className="wp-block-group is-layout-flow wp-block-group-is-layout-flow" id="wp--skip-link--target">
+        {children}
+      </main>
 
       <footer>
         © {new Date().getFullYear()}, Built with
