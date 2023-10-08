@@ -1,7 +1,0 @@
-.projects section .wp-block-code {
-  @apply p-4 border border-blue-500 rounded-lg border-solid m-2;
-}
-
-.projects section .wp-block-code a {
-  @apply border-b-2 border-rose-400 hover:bg-rose-300 duration-300;
-}
