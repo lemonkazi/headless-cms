@@ -347,7 +347,7 @@ class WC_Form_Handler {
 
 			do_action( 'woocommerce_save_account_details', $user->ID );
 
-			wp_safe_redirect( wc_get_page_permalink( 'myaccount' ) );
+			wp_safe_redirect( wc_get_endpoint_url( 'edit-account', '', wc_get_page_permalink( 'myaccount' ) ) );
 			exit;
 		}
 	}
@@ -440,6 +440,8 @@ class WC_Form_Handler {
 
 							// Redirect to success/confirmation/payment page.
 							if ( isset( $result['result'] ) && 'success' === $result['result'] ) {
+								$result['order_id'] = $order_id;
+
 								$result = apply_filters( 'woocommerce_payment_successful_result', $result, $order_id );
 
 								wp_redirect( $result['redirect'] ); //phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect
@@ -927,10 +929,17 @@ class WC_Form_Handler {
 	 * @throws Exception On login error.
 	 */
 	public static function process_login() {
-		// The global form-login.php template used `_wpnonce` in template versions < 3.3.0.
-		$nonce_value = wc_get_var( $_REQUEST['woocommerce-login-nonce'], wc_get_var( $_REQUEST['_wpnonce'], '' ) ); // @codingStandardsIgnoreLine.
 
-		if ( isset( $_POST['login'], $_POST['username'], $_POST['password'] ) && wp_verify_nonce( $nonce_value, 'woocommerce-login' ) ) {
+		static $valid_nonce = null;
+
+		if ( null === $valid_nonce ) {
+			// The global form-login.php template used `_wpnonce` in template versions < 3.3.0.
+			$nonce_value = wc_get_var( $_REQUEST['woocommerce-login-nonce'], wc_get_var( $_REQUEST['_wpnonce'], '' ) ); // @codingStandardsIgnoreLine.
+
+			$valid_nonce = wp_verify_nonce( $nonce_value, 'woocommerce-login' );
+		}
+
+		if ( isset( $_POST['login'], $_POST['username'], $_POST['password'] ) && $valid_nonce ) {
 
 			try {
 				$creds = array(
@@ -959,7 +968,7 @@ class WC_Form_Handler {
 					}
 				}
 
-				// Perform the login.
+				// Peform the login.
 				$user = wp_signon( apply_filters( 'woocommerce_login_credentials', $creds ), is_ssl() );
 
 				if ( is_wp_error( $user ) ) {
@@ -974,7 +983,9 @@ class WC_Form_Handler {
 						$redirect = wc_get_page_permalink( 'myaccount' );
 					}
 
-					wp_redirect( wp_validate_redirect( apply_filters( 'woocommerce_login_redirect', remove_query_arg( 'wc_error', $redirect ), $user ), wc_get_page_permalink( 'myaccount' ) ) ); // phpcs:ignore
+					$redirect = remove_query_arg( array( 'wc_error', 'password-reset' ), $redirect );
+
+					wp_redirect( wp_validate_redirect( apply_filters( 'woocommerce_login_redirect', $redirect, $user ), wc_get_page_permalink( 'myaccount' ) ) ); // phpcs:ignore
 					exit;
 				}
 			} catch ( Exception $e ) {

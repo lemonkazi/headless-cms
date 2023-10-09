@@ -1,25 +1,16 @@
 .wc-block-components-button:not(.is-link) {
-	@include reset-typography();
 	align-items: center;
-	background-color: $gray-900;
-	color: $white;
 	display: inline-flex;
-	font-weight: bold;
-	min-height: 3em;
+	height: auto;
 	justify-content: center;
-	line-height: 1;
-	padding: 0 em($gap);
 	text-align: center;
-	text-decoration: none;
-	text-transform: none;
 	position: relative;
+	transition: box-shadow 0.1s linear;
 
-	&:disabled,
-	&:hover,
-	&:focus,
-	&:active {
-		background-color: $gray-900;
-		color: $white;
+	&:focus {
+		box-shadow: 0 0 0 2px $studio-blue;
+		box-shadow: inset 0 0 0 1px $white, 0 0 0 2px $studio-blue;
+		outline: 3px solid transparent;
 	}
 
 	.wc-block-components-button__text {
@@ -29,45 +20,56 @@
 			fill: currentColor;
 		}
 	}
-	.wc-block-components-button__spinner {
-		width: 1em;
-		height: 1em;
-		position: absolute;
-		top: 50%;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		margin-top: -0.5em;
-		color: inherit;
-		box-sizing: content-box;
+	.wc-block-components-spinner + .wc-block-components-button__text {
+		visibility: hidden;
+	}
 
-		&::after {
-			content: " ";
-			display: inline-block;
-			margin: 0 auto;
-			width: 1em;
-			height: 1em;
-			box-sizing: border-box;
-			transform-origin: 50% 50%;
-			transform: translateZ(0) scale(0.5);
-			backface-visibility: hidden;
-			border-radius: 50%;
-			border: 0.2em solid currentColor;
-			border-left-color: transparent;
-			animation: wc-block-components-button__spinner__animation 1s infinite linear;
+	&.text {
+		color: $gray-900;
+
+		&:hover {
+			opacity: 0.9;
 		}
 	}
-	.wc-block-components-button__spinner + .wc-block-components-button__text {
-		visibility: hidden;
+
+	&.outlined {
+		background: transparent;
+		color: currentColor;
+
+		&:not(:focus) {
+			box-shadow: inset 0 0 0 1px currentColor;
+		}
+
+		&:disabled,
+		&:hover,
+		&:focus,
+		&:active {
+			background-color: $gray-900;
+			color: $white;
+		}
+
+		&:hover {
+			background-color: $gray-900;
+			color: $white;
+			opacity: 1;
+		}
 	}
 }
 
-@keyframes wc-block-components-button__spinner__animation {
-	0% {
-		animation-timing-function: cubic-bezier(0.5856, 0.0703, 0.4143, 0.9297);
-		transform: rotate(0deg);
+body:not(.woocommerce-block-theme-has-button-styles) .wc-block-components-button:not(.is-link) {
+	min-height: 3em;
+
+	&:focus {
+		box-shadow: 0 0 0 2px $studio-blue;
+		box-shadow: inset 0 0 0 1px $white, 0 0 0 2px $studio-blue;
+		outline: 3px solid transparent;
 	}
-	100% {
-		transform: rotate(360deg);
+
+	&.text {
+		color: $gray-900;
+
+		&:hover {
+			opacity: 0.9;
+		}
 	}
 }

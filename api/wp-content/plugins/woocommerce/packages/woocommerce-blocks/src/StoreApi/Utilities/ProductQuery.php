@@ -1,14 +1,12 @@
 <?php
-namespace Automattic\WooCommerce\Blocks\StoreApi\Utilities;
+namespace Automattic\WooCommerce\StoreApi\Utilities;
 
 use WC_Tax;
 
 /**
  * Product Query class.
- * Helper class to handle product queries for the API.
  *
- * @internal This API is used internally by Blocks--it is still in flux and may be subject to revisions.
- * @since 2.5.0
+ * Helper class to handle product queries for the API.
  */
 class ProductQuery {
 	/**
@@ -28,7 +26,8 @@ class ProductQuery {
 			'posts_per_page'      => $request['per_page'] ? $request['per_page'] : -1,
 			'post_parent__in'     => $request['parent'],
 			'post_parent__not_in' => $request['parent_exclude'],
-			's'                   => $request['search'],
+			'search'              => $request['search'], // This uses search rather than s intentionally to handle searches internally.
+			'slug'                => $request['slug'],
 			'fields'              => 'ids',
 			'ignore_sticky_posts' => true,
 			'post_status'         => 'publish',
@@ -36,10 +35,13 @@ class ProductQuery {
 			'post_type'           => 'product',
 		];
 
-		// If searching for a specific SKU, allow any post type.
-		if ( ! empty( $request['sku'] ) ) {
+		// If searching for a specific SKU or slug, allow any post type.
+		if ( ! empty( $request['sku'] ) || ! empty( $request['slug'] ) ) {
 			$args['post_type'] = [ 'product', 'product_variation' ];
 		}
+
+		// Taxonomy query to filter products by type, category, tag, shipping class, and attribute.
+		$tax_query = [];
 
 		// Filter product type by slug.
 		if ( ! empty( $request['type'] ) ) {
@@ -88,20 +90,29 @@ class ProductQuery {
 			}
 		}
 
-		// Taxonomy query to filter products by type, category, tag, shipping class, and attribute.
-		$tax_query = [];
-
 		$operator_mapping = [
 			'in'     => 'IN',
 			'not_in' => 'NOT IN',
 			'and'    => 'AND',
 		];
 
+		// Gets all registered product taxonomies and prefixes them with `tax_`.
+		// This is needed to avoid situations where a user registers a new product taxonomy with the same name as default field.
+		// eg an `sku` taxonomy will be mapped to `tax_sku`.
+		$all_product_taxonomies = array_map(
+			function ( $value ) {
+				return '_unstable_tax_' . $value;
+			},
+			get_taxonomies( array( 'object_type' => array( 'product' ) ), 'names' )
+		);
+
 		// Map between taxonomy name and arg key.
-		$taxonomies = [
+		$default_taxonomies = [
 			'product_cat' => 'category',
 			'product_tag' => 'tag',
 		];
+
+		$taxonomies = array_merge( $all_product_taxonomies, $default_taxonomies );
 
 		// Set tax_query for each passed arg.
 		foreach ( $taxonomies as $taxonomy => $key ) {
@@ -298,10 +309,12 @@ class ProductQuery {
 		global $wpdb;
 
 		if ( $wp_query->get( 'search' ) ) {
-			$search         = "'%" . $wpdb->esc_like( $wp_query->get( 'search' ) ) . "%'";
+			$search         = '%' . $wpdb->esc_like( $wp_query->get( 'search' ) ) . '%';
+			$search_query   = wc_product_sku_enabled()
+				? $wpdb->prepare( " AND ( $wpdb->posts.post_title LIKE %s OR wc_product_meta_lookup.sku LIKE %s ) ", $search, $search )
+				: $wpdb->prepare( " AND $wpdb->posts.post_title LIKE %s ", $search );
+			$args['where'] .= $search_query;
 			$args['join']   = $this->append_product_sorting_table_join( $args['join'] );
-			$args['where'] .= " AND ({$wpdb->posts}.post_title LIKE {$search}";
-			$args['where'] .= wc_product_sku_enabled() ? ' OR wc_product_meta_lookup.sku LIKE ' . $search . ')' : ')';
 		}
 
 		if ( $wp_query->get( 'sku' ) ) {
@@ -314,9 +327,23 @@ class ProductQuery {
 			$args['where'] .= ' AND wc_product_meta_lookup.sku IN ("' . implode( '","', array_map( 'esc_sql', $skus ) ) . '")';
 		}
 
+		if ( $wp_query->get( 'slug' ) ) {
+			$slugs = explode( ',', $wp_query->get( 'slug' ) );
+			// Include the current string as a slug too.
+			if ( 1 < count( $slugs ) ) {
+				$slugs[] = $wp_query->get( 'slug' );
+			}
+			$args['join']   = $this->append_product_sorting_table_join( $args['join'] );
+			$post_name__in  = implode( '","', array_map( 'esc_sql', $slugs ) );
+			$args['where'] .= " AND $wpdb->posts.post_name IN (\"$post_name__in\")";
+		}
+
 		if ( $wp_query->get( 'stock_status' ) ) {
 			$args['join']   = $this->append_product_sorting_table_join( $args['join'] );
-			$args['where'] .= $wpdb->prepare( ' AND wc_product_meta_lookup.stock_status = %s ', $wp_query->get( 'stock_status' ) );
+			$args['where'] .= ' AND wc_product_meta_lookup.stock_status IN ("' . implode( '","', array_map( 'esc_sql', $wp_query->get( 'stock_status' ) ) ) . '")';
+		} elseif ( 'yes' === get_option( 'woocommerce_hide_out_of_stock_items' ) ) {
+			$args['join']   = $this->append_product_sorting_table_join( $args['join'] );
+			$args['where'] .= ' AND wc_product_meta_lookup.stock_status NOT IN ("outofstock")';
 		}
 
 		if ( $wp_query->get( 'min_price' ) || $wp_query->get( 'max_price' ) ) {
@@ -444,6 +471,20 @@ class ProductQuery {
 
 		// If prices are shown incl. tax, we want to remove the taxes from the filter amount to match prices stored excl. tax.
 		if ( 'incl' === $tax_display ) {
+			/**
+			 * Filters if taxes should be removed from locations outside the store base location.
+			 *
+			 * The woocommerce_adjust_non_base_location_prices filter can stop base taxes being taken off when dealing
+			 * with out of base locations. e.g. If a product costs 10 including tax, all users will pay 10
+			 * regardless of location and taxes.
+			 *
+			 * @since 2.6.0
+			 *
+			 * @internal Matches filter name in WooCommerce core.
+			 *
+			 * @param boolean $adjust_non_base_location_prices True by default.
+			 * @return boolean
+			 */
 			$taxes = apply_filters( 'woocommerce_adjust_non_base_location_prices', true ) ? WC_Tax::calc_tax( $price_filter, $base_tax_rates, true ) : WC_Tax::calc_tax( $price_filter, $tax_rates, true );
 			return $price_filter - array_sum( $taxes );
 		}

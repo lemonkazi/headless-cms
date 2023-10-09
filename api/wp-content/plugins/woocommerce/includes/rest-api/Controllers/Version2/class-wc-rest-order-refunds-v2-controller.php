@@ -348,7 +348,7 @@ class WC_REST_Order_Refunds_V2_Controller extends WC_REST_Orders_V2_Controller {
 	}
 
 	/**
-	 * Get the Order's schema, conforming to JSON Schema.
+	 * Get the refund schema, conforming to JSON Schema.
 	 *
 	 * @return array
 	 */
@@ -394,7 +394,7 @@ class WC_REST_Order_Refunds_V2_Controller extends WC_REST_Orders_V2_Controller {
 				'refunded_payment' => array(
 					'description' => __( 'If the payment was refunded via the API.', 'woocommerce' ),
 					'type'        => 'boolean',
-					'context'     => array( 'view' ),
+					'context'     => array( 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'meta_data'        => array(

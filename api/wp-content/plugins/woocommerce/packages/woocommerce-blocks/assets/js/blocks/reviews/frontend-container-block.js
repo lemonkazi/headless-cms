@@ -3,7 +3,7 @@
  */
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { speak } from '@wordpress/a11y';
-import { Component } from 'react';
+import { Component } from '@wordpress/element';
 import PropTypes from 'prop-types';
 
 /**
@@ -51,7 +51,7 @@ class FrontendContainerBlock extends Component {
 	onReviewsAppended( { newReviews } ) {
 		speak(
 			sprintf(
-				// Translators: %d is the count of reviews loaded.
+				/* translators: %d is the count of reviews loaded. */
 				_n(
 					'%d review loaded.',
 					'%d reviews loaded.',
@@ -95,6 +95,7 @@ class FrontendContainerBlock extends Component {
 				orderby={ orderby }
 				productId={ productId }
 				reviewsToDisplay={ reviewsToDisplay }
+				sortSelectValue={ this.state.orderby }
 			/>
 		);
 	}

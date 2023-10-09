@@ -19,7 +19,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * @param  int|WC_Product $product        Product ID or product instance.
  * @param  int|null       $stock_quantity Stock quantity.
- * @param  string         $operation      Type of opertion, allows 'set', 'increase' and 'decrease'.
+ * @param  string         $operation      Type of operation, allows 'set', 'increase' and 'decrease'.
  * @param  bool           $updating       If true, the product object won't be saved here as it will be updated later.
  * @return bool|int|null
  */
@@ -37,6 +37,13 @@ function wc_update_product_stock( $product, $stock_quantity = null, $operation =
 		$product_id_with_stock = $product->get_stock_managed_by_id();
 		$product_with_stock    = $product_id_with_stock !== $product->get_id() ? wc_get_product( $product_id_with_stock ) : $product;
 		$data_store            = WC_Data_Store::load( 'product' );
+
+		// Fire actions to let 3rd parties know the stock is about to be changed.
+		if ( $product_with_stock->is_type( 'variation' ) ) {
+			do_action( 'woocommerce_variation_before_set_stock', $product_with_stock );
+		} else {
+			do_action( 'woocommerce_product_before_set_stock', $product_with_stock );
+		}
 
 		// Update the database.
 		$new_stock = $data_store->update_product_stock( $product_id_with_stock, $stock_quantity, $operation );
@@ -190,11 +197,22 @@ function wc_reduce_stock_levels( $order_id ) {
 		$item->add_meta_data( '_reduced_stock', $qty, true );
 		$item->save();
 
-		$changes[] = array(
+		$change    = array(
 			'product' => $product,
 			'from'    => $new_stock + $qty,
 			'to'      => $new_stock,
 		);
+		$changes[] = $change;
+
+		/**
+		 * Fires when stock reduced to a specific line item
+		 *
+		 * @param WC_Order_Item_Product $item Order item data.
+		 * @param array $change  Change Details.
+		 * @param WC_Order $order  Order data.
+		 * @since 7.6.0
+		 */
+		do_action( 'woocommerce_reduce_order_item_stock', $item, $change, $order );
 	}
 
 	wc_trigger_stock_change_notifications( $order, $changes );
@@ -383,18 +401,26 @@ add_action( 'woocommerce_order_status_on-hold', 'wc_release_stock_for_order', 11
 /**
  * Return low stock amount to determine if notification needs to be sent
  *
+ * Since 5.2.0, this function no longer redirects from variation to its parent product.
+ * Low stock amount can now be attached to the variation itself and if it isn't, only
+ * then we check the parent product, and if it's not there, then we take the default
+ * from the store-wide setting.
+ *
  * @param  WC_Product $product Product to get data from.
  * @since  3.5.0
  * @return int
  */
 function wc_get_low_stock_amount( WC_Product $product ) {
-	if ( $product->is_type( 'variation' ) ) {
-		$product = wc_get_product( $product->get_parent_id() );
-	}
 	$low_stock_amount = $product->get_low_stock_amount();
+
+	if ( '' === $low_stock_amount && $product->is_type( 'variation' ) ) {
+		$product          = wc_get_product( $product->get_parent_id() );
+		$low_stock_amount = $product->get_low_stock_amount();
+	}
+
 	if ( '' === $low_stock_amount ) {
 		$low_stock_amount = get_option( 'woocommerce_notify_low_stock_amount', 2 );
 	}
 
-	return $low_stock_amount;
+	return (int) $low_stock_amount;
 }

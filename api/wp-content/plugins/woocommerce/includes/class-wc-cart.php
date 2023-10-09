@@ -210,7 +210,7 @@ class WC_Cart extends WC_Legacy_Cart {
 	}
 
 	/**
-	 * Get subtotal.
+	 * Get subtotal_tax.
 	 *
 	 * @since 3.2.0
 	 * @return float
@@ -284,7 +284,7 @@ class WC_Cart extends WC_Legacy_Cart {
 	 *
 	 * @since 3.2.0
 	 * @param string $context If the context is view, the value will be formatted for display. This keeps it compatible with pre-3.2 versions.
-	 * @return float
+	 * @return float|string
 	 */
 	public function get_total( $context = 'view' ) {
 		$total = apply_filters( 'woocommerce_cart_' . __FUNCTION__, $this->get_totals_var( 'total' ) );
@@ -430,7 +430,7 @@ class WC_Cart extends WC_Legacy_Cart {
 	 * @param string $value Value to set.
 	 */
 	public function set_subtotal( $value ) {
-		$this->totals['subtotal'] = wc_format_decimal( $value, wc_get_price_decimals() );
+		$this->totals['subtotal'] = wc_format_decimal( $value );
 	}
 
 	/**
@@ -470,7 +470,7 @@ class WC_Cart extends WC_Legacy_Cart {
 	 * @param string $value Value to set.
 	 */
 	public function set_shipping_total( $value ) {
-		$this->totals['shipping_total'] = wc_format_decimal( $value, wc_get_price_decimals() );
+		$this->totals['shipping_total'] = wc_format_decimal( $value );
 	}
 
 	/**
@@ -490,7 +490,7 @@ class WC_Cart extends WC_Legacy_Cart {
 	 * @param string $value Value to set.
 	 */
 	public function set_cart_contents_total( $value ) {
-		$this->totals['cart_contents_total'] = wc_format_decimal( $value, wc_get_price_decimals() );
+		$this->totals['cart_contents_total'] = wc_format_decimal( $value );
 	}
 
 	/**
@@ -531,7 +531,7 @@ class WC_Cart extends WC_Legacy_Cart {
 	 * @param string $value Value to set.
 	 */
 	public function set_fee_total( $value ) {
-		$this->totals['fee_total'] = wc_format_decimal( $value, wc_get_price_decimals() );
+		$this->totals['fee_total'] = wc_format_decimal( $value );
 	}
 
 	/**
@@ -626,7 +626,7 @@ class WC_Cart extends WC_Legacy_Cart {
 	/**
 	 * Empties the cart and optionally the persistent cart too.
 	 *
-	 * @param bool $clear_persistent_cart Should the persistant cart be cleared too. Defaults to true.
+	 * @param bool $clear_persistent_cart Should the persistent cart be cleared too. Defaults to true.
 	 */
 	public function empty_cart( $clear_persistent_cart = true ) {
 
@@ -822,6 +822,11 @@ class WC_Cart extends WC_Legacy_Cart {
 				if ( $values['quantity'] > 0 ) {
 					$cross_sells = array_merge( $values['data']->get_cross_sell_ids(), $cross_sells );
 					$in_cart[]   = $values['product_id'];
+
+					// Add variations to the in cart array.
+					if ( $values['data']->is_type( 'variation' ) ) {
+						$in_cart[] = $values['variation_id'];
+					}
 				}
 			}
 		}
@@ -1120,6 +1125,20 @@ class WC_Cart extends WC_Legacy_Cart {
 				}
 			}
 
+			// Validate variation ID.
+			if (
+				0 < $variation_id && // Only check if there's any variation_id.
+				(
+					! $product_data->is_type( 'variation' ) || // Check if isn't a variation, it suppose to be a variation at this point.
+					$product_data->get_parent_id() !== $product_id // Check if belongs to the selected variable product.
+				)
+			) {
+				$product = wc_get_product( $product_id );
+
+				/* translators: 1: product link, 2: product name */
+				throw new Exception( sprintf( __( 'The selected product isn\'t a variation of %2$s, please choose product options by visiting <a href="%1$s" title="%2$s">%2$s</a>.', 'woocommerce' ), esc_url( $product->get_permalink() ), esc_html( $product->get_name() ) ) );
+			}
+
 			// Load cart item data - may be added by other plugins.
 			$cart_item_data = (array) apply_filters( 'woocommerce_add_cart_item_data', $cart_item_data, $product_id, $variation_id, $quantity );
 
@@ -1145,9 +1164,10 @@ class WC_Cart extends WC_Legacy_Cart {
 					 * @param string     $message Message.
 					 * @param WC_Product $product_data Product data.
 					 */
-					$message = apply_filters( 'woocommerce_cart_product_cannot_add_another_message', $message, $product_data );
+					$message         = apply_filters( 'woocommerce_cart_product_cannot_add_another_message', $message, $product_data );
+					$wp_button_class = wc_wp_theme_get_element_class_name( 'button' ) ? ' ' . wc_wp_theme_get_element_class_name( 'button' ) : '';
 
-					throw new Exception( sprintf( '<a href="%s" class="button wc-forward">%s</a> %s', wc_get_cart_url(), __( 'View cart', 'woocommerce' ), $message ) );
+					throw new Exception( sprintf( '<a href="%s" class="button wc-forward%s">%s</a> %s', wc_get_cart_url(), esc_attr( $wp_button_class ), __( 'View cart', 'woocommerce' ), $message ) );
 				}
 			}
 
@@ -1204,15 +1224,32 @@ class WC_Cart extends WC_Legacy_Cart {
 				$products_qty_in_cart = $this->get_cart_item_quantities();
 
 				if ( isset( $products_qty_in_cart[ $product_data->get_stock_managed_by_id() ] ) && ! $product_data->has_enough_stock( $products_qty_in_cart[ $product_data->get_stock_managed_by_id() ] + $quantity ) ) {
-					throw new Exception(
-						sprintf(
-							'<a href="%s" class="button wc-forward">%s</a> %s',
-							wc_get_cart_url(),
-							__( 'View cart', 'woocommerce' ),
-							/* translators: 1: quantity in stock 2: current quantity */
-							sprintf( __( 'You cannot add that amount to the cart &mdash; we have %1$s in stock and you already have %2$s in your cart.', 'woocommerce' ), wc_format_stock_quantity_for_display( $product_data->get_stock_quantity(), $product_data ), wc_format_stock_quantity_for_display( $products_qty_in_cart[ $product_data->get_stock_managed_by_id() ], $product_data ) )
-						)
+					$stock_quantity         = $product_data->get_stock_quantity();
+					$stock_quantity_in_cart = $products_qty_in_cart[ $product_data->get_stock_managed_by_id() ];
+					$wp_button_class        = wc_wp_theme_get_element_class_name( 'button' ) ? ' ' . wc_wp_theme_get_element_class_name( 'button' ) : '';
+
+					$message = sprintf(
+						'<a href="%s" class="button wc-forward%s">%s</a> %s',
+						wc_get_cart_url(),
+						esc_attr( $wp_button_class ),
+						__( 'View cart', 'woocommerce' ),
+						/* translators: 1: quantity in stock 2: current quantity */
+						sprintf( __( 'You cannot add that amount to the cart &mdash; we have %1$s in stock and you already have %2$s in your cart.', 'woocommerce' ), wc_format_stock_quantity_for_display( $stock_quantity, $product_data ), wc_format_stock_quantity_for_display( $stock_quantity_in_cart, $product_data ) )
 					);
+
+					/**
+					 * Filters message about product not having enough stock accounting for what's already in the cart.
+					 *
+					 * @param string $message Message.
+					 * @param WC_Product $product_data Product data.
+					 * @param int $stock_quantity Quantity remaining.
+					 * @param int $stock_quantity_in_cart
+					 *
+					 * @since 5.3.0
+					 */
+					$message = apply_filters( 'woocommerce_cart_product_not_enough_stock_already_in_cart_message', $message, $product_data, $stock_quantity, $stock_quantity_in_cart );
+
+					throw new Exception( $message );
 				}
 			}
 
@@ -1621,7 +1658,11 @@ class WC_Cart extends WC_Legacy_Cart {
 					$coupon_data_store = $coupon->get_data_store();
 					$billing_email     = strtolower( sanitize_email( $billing_email ) );
 					if ( $coupon_data_store && $coupon_data_store->get_usage_by_email( $coupon, $billing_email ) >= $coupon_usage_limit ) {
-						$coupon->add_coupon_message( WC_Coupon::E_WC_COUPON_USAGE_LIMIT_REACHED );
+						if ( $coupon_data_store->get_tentative_usages_for_user( $coupon->get_id(), array( $billing_email ) ) ) {
+							$coupon->add_coupon_message( WC_Coupon::E_WC_COUPON_USAGE_LIMIT_COUPON_STUCK_GUEST );
+						} else {
+							$coupon->add_coupon_message( WC_Coupon::E_WC_COUPON_USAGE_LIMIT_REACHED );
+						}
 					}
 				}
 			}
@@ -1996,7 +2037,7 @@ class WC_Cart extends WC_Legacy_Cart {
 				}
 			}
 		} else {
-			$row_price        = $price * $quantity;
+			$row_price        = (float) $price * (float) $quantity;
 			$product_subtotal = wc_price( $row_price );
 		}
 

@@ -44,8 +44,9 @@ jQuery(
 				$( 'input[name="_width"]', '.inline-edit-row' ).val( width );
 				$( 'input[name="_height"]', '.inline-edit-row' ).val( height );
 
-				$( 'select[name="_shipping_class"] option:selected', '.inline-edit-row' ).attr( 'selected', false ).change();
-				$( 'select[name="_shipping_class"] option[value="' + shipping_class + '"]' ).attr( 'selected', 'selected' ).change();
+				$( 'select[name="_shipping_class"] option:selected', '.inline-edit-row' ).attr( 'selected', false ).trigger( 'change' );
+				$( 'select[name="_shipping_class"] option[value="' + shipping_class + '"]' ).attr( 'selected', 'selected' )
+					.trigger( 'change' );
 
 				$( 'input[name="_stock"]', '.inline-edit-row' ).val( stock );
 				$( 'input[name="menu_order"]', '.inline-edit-row' ).val( menu_order );
@@ -56,7 +57,7 @@ jQuery(
 					'select[name="_visibility"] option, ' +
 					'select[name="_stock_status"] option, ' +
 					'select[name="_backorders"] option'
-				).removeAttr( 'selected' );
+				).prop( 'selected', false ).removeAttr( 'selected' );
 
 				var is_variable_product = 'variable' === product_type;
 				$( 'select[name="_stock_status"] ~ .wc-quick-edit-warning', '.inline-edit-row' ).toggle( is_variable_product );
@@ -69,9 +70,9 @@ jQuery(
 				$( 'select[name="_backorders"] option[value="' + backorders + '"]', '.inline-edit-row' ).attr( 'selected', 'selected' );
 
 				if ( 'yes' === featured ) {
-					$( 'input[name="_featured"]', '.inline-edit-row' ).attr( 'checked', 'checked' );
+					$( 'input[name="_featured"]', '.inline-edit-row' ).prop( 'checked', true );
 				} else {
-					$( 'input[name="_featured"]', '.inline-edit-row' ).removeAttr( 'checked' );
+					$( 'input[name="_featured"]', '.inline-edit-row' ).prop( 'checked', false );
 				}
 
 				// Conditional display.

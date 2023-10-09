@@ -198,7 +198,7 @@ class WC_Structured_Data {
 		$markup = array(
 			'@type'       => 'Product',
 			'@id'         => $permalink . '#product', // Append '#product' to differentiate between this @id and the @id generated for the Breadcrumblist.
-			'name'        => $product->get_name(),
+			'name'        => wp_kses_post( $product->get_name() ),
 			'url'         => $permalink,
 			'description' => wp_strip_all_tags( do_shortcode( $product->get_short_description() ? $product->get_short_description() : $product->get_description() ) ),
 		);
@@ -257,9 +257,15 @@ class WC_Structured_Data {
 				);
 			}
 
+			if ( $product->is_in_stock() ) {
+				$stock_status_schema = ( 'onbackorder' === $product->get_stock_status() ) ? 'BackOrder' : 'InStock';
+			} else {
+				$stock_status_schema = 'OutOfStock';
+			}
+
 			$markup_offer += array(
 				'priceCurrency' => $currency,
-				'availability'  => 'http://schema.org/' . ( $product->is_in_stock() ? 'InStock' : 'OutOfStock' ),
+				'availability'  => 'http://schema.org/' . $stock_status_schema,
 				'url'           => $permalink,
 				'seller'        => array(
 					'@type' => 'Organization',
@@ -477,7 +483,7 @@ class WC_Structured_Data {
 				),
 				'itemOffered'        => array(
 					'@type' => 'Product',
-					'name'  => apply_filters( 'woocommerce_order_item_name', $item->get_name(), $item, $is_visible ),
+					'name'  => wp_kses_post( apply_filters( 'woocommerce_order_item_name', $item->get_name(), $item, $is_visible ) ),
 					'sku'   => $product_exists ? $product->get_sku() : '',
 					'image' => $product_exists ? wp_get_attachment_image_url( $product->get_image_id() ) : '',
 					'url'   => $is_visible ? get_permalink( $product->get_id() ) : get_home_url(),

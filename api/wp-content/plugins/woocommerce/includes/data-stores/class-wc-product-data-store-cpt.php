@@ -6,6 +6,7 @@
  */
 
 use Automattic\Jetpack\Constants;
+use Automattic\WooCommerce\Internal\DownloadPermissionsAdjuster;
 use Automattic\WooCommerce\Utilities\NumberUtil;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -202,7 +203,7 @@ class WC_Product_Data_Store_CPT extends WC_Data_Store_WP implements WC_Object_Da
 		$changes = $product->get_changes();
 
 		// Only update the post when the post data changes.
-		if ( array_intersect( array( 'description', 'short_description', 'name', 'parent_id', 'reviews_allowed', 'status', 'menu_order', 'date_created', 'date_modified', 'slug' ), array_keys( $changes ) ) ) {
+		if ( array_intersect( array( 'description', 'short_description', 'name', 'parent_id', 'reviews_allowed', 'status', 'menu_order', 'date_created', 'date_modified', 'slug', 'post_password' ), array_keys( $changes ) ) ) {
 			$post_data = array(
 				'post_content'   => $product->get_description( 'edit' ),
 				'post_excerpt'   => $product->get_short_description( 'edit' ),
@@ -264,6 +265,10 @@ class WC_Product_Data_Store_CPT extends WC_Data_Store_WP implements WC_Object_Da
 		$this->update_version_and_type( $product );
 		$this->handle_updated_props( $product );
 		$this->clear_caches( $product );
+
+		wc_get_container()
+			->get( DownloadPermissionsAdjuster::class )
+			->maybe_schedule_adjust_download_permissions( $product );
 
 		$product->apply_changes();
 
@@ -363,7 +368,7 @@ class WC_Product_Data_Store_CPT extends WC_Data_Store_WP implements WC_Object_Da
 		$set_props['category_ids']      = $this->get_term_ids( $product, 'product_cat' );
 		$set_props['tag_ids']           = $this->get_term_ids( $product, 'product_tag' );
 		$set_props['shipping_class_id'] = current( $this->get_term_ids( $product, 'product_shipping_class' ) );
-		$set_props['gallery_image_ids'] = array_filter( explode( ',', $set_props['gallery_image_ids'] ) );
+		$set_props['gallery_image_ids'] = array_filter( explode( ',', $set_props['gallery_image_ids'] ?? '' ) );
 
 		$product->set_props( $set_props );
 	}
@@ -569,6 +574,28 @@ class WC_Product_Data_Store_CPT extends WC_Data_Store_WP implements WC_Object_Da
 				case 'date_on_sale_to':
 					$value = $value ? $value->getTimestamp() : '';
 					break;
+				case 'stock_quantity':
+					// Fire actions to let 3rd parties know the stock is about to be changed.
+					if ( $product->is_type( 'variation' ) ) {
+						/**
+						* Action to signal that the value of 'stock_quantity' for a variation is about to change.
+						*
+						* @since 4.9
+						*
+						* @param int $product The variation whose stock is about to change.
+						*/
+						do_action( 'woocommerce_variation_before_set_stock', $product );
+					} else {
+						/**
+						* Action to signal that the value of 'stock_quantity' for a product is about to change.
+						*
+						* @since 4.9
+						*
+						* @param int $product The product whose stock is about to change.
+						*/
+						do_action( 'woocommerce_product_before_set_stock', $product );
+					}
+					break;
 			}
 
 			$updated = $this->update_or_delete_post_meta( $product, $meta_key, $value );
@@ -683,6 +710,8 @@ class WC_Product_Data_Store_CPT extends WC_Data_Store_WP implements WC_Object_Da
 		if ( $force || array_key_exists( 'shipping_class_id', $changes ) ) {
 			wp_set_post_terms( $product->get_id(), array( $product->get_shipping_class_id( 'edit' ) ), 'product_shipping_class', false );
 		}
+
+		_wc_recount_terms_by_product( $product->get_id() );
 	}
 
 	/**
@@ -1089,7 +1118,7 @@ class WC_Product_Data_Store_CPT extends WC_Data_Store_WP implements WC_Object_Da
 			$product->get_id()
 		);
 
-		$query .= ' AND postmeta.meta_key IN ( "' . implode( '","', array_map( 'esc_sql', $meta_attribute_names ) ) . '" )';
+		$query .= " AND postmeta.meta_key IN ( '" . implode( "','", array_map( 'esc_sql', $meta_attribute_names ) ) . "' )";
 
 		$query .= ' ORDER BY posts.menu_order ASC, postmeta.post_id ASC;';
 
@@ -1108,7 +1137,7 @@ class WC_Product_Data_Store_CPT extends WC_Data_Store_WP implements WC_Object_Da
 		/**
 		 * Check each variation to find the one that matches the $match_attributes.
 		 *
-		 * Note: Not all meta fields will be set which is why we check existance.
+		 * Note: Not all meta fields will be set which is why we check existence.
 		 */
 		foreach ( $sorted_meta as $variation_id => $variation ) {
 			$match = true;
@@ -1209,7 +1238,7 @@ class WC_Product_Data_Store_CPT extends WC_Data_Store_WP implements WC_Object_Da
 		// phpcs:ignore WordPress.VIP.DirectDatabaseQuery.DirectQuery
 		$ids   = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product_variation' AND post_parent = %d AND post_status = 'publish' ORDER BY menu_order ASC, ID ASC",
+				"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product_variation' AND post_parent = %d AND post_status in ( 'publish', 'private' ) ORDER BY menu_order ASC, ID ASC",
 				$parent_id
 			)
 		);
@@ -1614,7 +1643,7 @@ class WC_Product_Data_Store_CPT extends WC_Data_Store_WP implements WC_Object_Da
 
 				// Variations should also search the parent's meta table for fallback fields.
 				if ( $include_variations ) {
-					$variation_query = $wpdb->prepare( ' OR ( wc_product_meta_lookup.sku = "" AND parent_wc_product_meta_lookup.sku LIKE %s ) ', $like );
+					$variation_query = $wpdb->prepare( " OR ( wc_product_meta_lookup.sku = '' AND parent_wc_product_meta_lookup.sku LIKE %s ) ", $like );
 				} else {
 					$variation_query = '';
 				}

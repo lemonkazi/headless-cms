@@ -1,12 +1,3 @@
-.wc-block-link-button {
-	@include link-button();
-}
-
-.wc-block-suspense-placeholder {
-	@include placeholder();
-	@include force-content();
-}
-
 // These styles are for the server side rendered product grid blocks.
 .wc-block-grid__products .wc-block-grid__product-image {
 	text-decoration: none;
@@ -21,10 +12,16 @@
 	}
 
 	img {
-		width: 100%;
+		height: auto;
+		width: auto;
+		max-width: 100%;
 
 		&[hidden] {
 			display: none;
+		}
+
+		&[alt=""] {
+			border: 1px solid $image-placeholder-border-color;
 		}
 	}
 }
@@ -32,7 +29,7 @@
 .editor-styles-wrapper .wc-block-grid__product-title,
 .wc-block-grid__product-title {
 	font-family: inherit;
-	line-height: 1.2em;
+	line-height: 1.2;
 	font-weight: 700;
 	padding: 0;
 	color: inherit;
@@ -52,7 +49,8 @@
 	.wp-block-button__link {
 		word-break: break-word;
 		white-space: normal;
-		margin: 0 auto !important;
+		margin-right: auto !important;
+		margin-left: auto !important;
 		display: inline-flex;
 		justify-content: center;
 		text-align: center;
@@ -120,7 +118,6 @@
 			right: 0;
 			position: absolute;
 			opacity: 0.5;
-			color: #aaa;
 			white-space: nowrap;
 		}
 		span {
@@ -133,16 +130,17 @@
 		}
 		span::before {
 			content: "\53\53\53\53\53";
+			color: inherit;
 			top: 0;
 			left: 0;
 			right: 0;
 			position: absolute;
-			color: #000;
 			white-space: nowrap;
 		}
 	}
 }
-.wc-block-grid__product-onsale {
+.wc-block-grid__product-image .wc-block-grid__product-onsale,
+.wc-block-grid .wc-block-grid__product-onsale {
 	@include font-size(small);
 	padding: em($gap-smallest) em($gap-small);
 	display: inline-block;
@@ -155,12 +153,16 @@
 	text-transform: uppercase;
 	font-weight: 600;
 	z-index: 9;
-	position: relative;
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	left: auto;
 }
 
 // Element spacing.
 .wc-block-grid__product {
-	.wc-block-grid__product-image,
+	// Not operator necessary for avoid this problem: https://github.com/woocommerce/woocommerce-gutenberg-products-block/pull/5925/files#r814043454
+	.wc-block-grid__product-image:not(.wc-block-components-product-image),
 	.wc-block-grid__product-title {
 		margin: 0 0 $gap-small;
 	}
@@ -200,6 +202,9 @@
 	.wc-block-components-product-sale-badge {
 		line-height: 1;
 	}
+	.editor-styles-wrapper .wp-block-button .wp-block-button__link:not(.has-text-color) {
+		color: #fff;
+	}
 }
 
 .theme-twentytwenty {
@@ -213,8 +218,8 @@
 	.wc-block-grid__product-title,
 	.wc-block-components-product-title {
 		font-family: $twentytwenty-headings;
-		color: #000;
-		font-size: 1.2em;
+		color: $twentytwenty-highlights-color;
+		@include font-size(regular);
 	}
 
 	.wp-block-columns .wc-block-components-product-title {
@@ -264,14 +269,6 @@
 		text-transform: uppercase;
 	}
 
-	// These styles are not applied to the All Products atomic block, so it can be positioned normally.
-	.wc-block-grid__products .wc-block-grid__product-onsale {
-		position: absolute;
-		right: 4px;
-		top: 4px;
-		z-index: 1;
-	}
-
 	// Override style from WC Core that set its position to absolute.
 	// These rulesets can be removed once https://github.com/woocommerce/woocommerce/pull/26516 is released.
 	.wc-block-grid__products .wc-block-components-product-sale-badge {
@@ -289,6 +286,22 @@
 		z-index: 1;
 	}
 
+	.wc-block-active-filters__title,
+	.wc-block-attribute-filter__title,
+	.wc-block-price-filter__title,
+	.wc-block-stock-filter__title {
+		@include font-size(regular);
+	}
+
+	.wc-block-active-filters .wc-block-active-filters__clear-all {
+		@include font-size(smaller);
+	}
+
+	.wc-block-grid__product-add-to-cart.wp-block-button .wp-block-button__link {
+		@include font-size(smaller);
+		padding: em($gap-smaller);
+	}
+
 	@media only screen and (min-width: 768px) {
 		.wc-block-grid__products .wc-block-grid__product-onsale {
 			@include font-size(small);
@@ -302,4 +315,32 @@
 			padding: em($gap-smaller);
 		}
 	}
+}
+
+.theme-twentytwentytwo {
+	.wc-block-grid__product-add-to-cart {
+		.added_to_cart {
+			margin-top: $gap-small;
+			display: block;
+		}
+	}
+
+	.wc-block-components-product-price,
+	.wc-block-grid__product-price {
+		ins {
+			text-decoration: none;
+		}
+	}
+}
+
+// Default screen-reader styles. Included as a fallback for themes that don't have support.
+.screen-reader-text {
+	@include visually-hidden();
+}
+.screen-reader-text:focus {
+	@include visually-hidden-focus-reveal();
+}
+
+.wp-block-group.woocommerce.product .up-sells.upsells.products {
+	max-width: var(--wp--style--global--wide-size);
 }

@@ -36,6 +36,42 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 	public static $log = false;
 
 	/**
+	 * Whether the test mode is enabled.
+	 *
+	 * @var bool
+	 */
+	public $testmode;
+
+	/**
+	 * Whether the debug mode is enabled.
+	 *
+	 * @var bool
+	 */
+	public $debug;
+
+	/**
+	 * Email address to send payments to.
+	 *
+	 * @var string
+	 */
+	public $email;
+
+	/**
+	 * Receiver email.
+	 *
+	 * @var string
+	 */
+	public $receiver_email;
+
+	/**
+	 * Identity token.
+	 *
+	 * @var string
+	 */
+	public $identity_token;
+
+
+	/**
 	 * Constructor for the gateway.
 	 */
 	public function __construct() {
@@ -70,6 +106,7 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 			$this->description  = trim( $this->description );
 		}
 
+		// Actions.
 		add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
 		add_action( 'woocommerce_order_status_processing', array( $this, 'capture_payment' ) );
 		add_action( 'woocommerce_order_status_completed', array( $this, 'capture_payment' ) );
@@ -83,7 +120,8 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 
 			if ( $this->identity_token ) {
 				include_once dirname( __FILE__ ) . '/includes/class-wc-gateway-paypal-pdt-handler.php';
-				new WC_Gateway_Paypal_PDT_Handler( $this->testmode, $this->identity_token );
+				$pdt_handler = new WC_Gateway_Paypal_PDT_Handler( $this->testmode, $this->identity_token );
+				$pdt_handler->set_receiver_email( $this->receiver_email );
 			}
 		}
 
@@ -426,8 +464,9 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 					case 'Completed':
 						/* translators: 1: Amount, 2: Authorization ID, 3: Transaction ID */
 						$order->add_order_note( sprintf( __( 'Payment of %1$s was captured - Auth ID: %2$s, Transaction ID: %3$s', 'woocommerce' ), $result->AMT, $result->AUTHORIZATIONID, $result->TRANSACTIONID ) );
-						update_post_meta( $order->get_id(), '_paypal_status', $result->PAYMENTSTATUS );
-						update_post_meta( $order->get_id(), '_transaction_id', $result->TRANSACTIONID );
+						$order->update_meta_data( '_paypal_status', $result->PAYMENTSTATUS );
+						$order->set_transaction_id( $result->TRANSACTIONID );
+						$order->save();
 						break;
 					default:
 						/* translators: 1: Authorization ID, 2: Payment status */
@@ -472,5 +511,43 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 		}
 
 		return $text;
+	}
+
+	/**
+	 * Determines whether PayPal Standard should be loaded or not.
+	 *
+	 * By default PayPal Standard isn't loaded on new installs or on existing sites which haven't set up the gateway.
+	 *
+	 * @since 5.5.0
+	 *
+	 * @return bool Whether PayPal Standard should be loaded.
+	 */
+	public function should_load() {
+		$option_key  = '_should_load';
+		$should_load = $this->get_option( $option_key );
+
+		if ( '' === $should_load ) {
+
+			// New installs without PayPal Standard enabled don't load it.
+			if ( 'no' === $this->enabled && WC_Install::is_new_install() ) {
+				$should_load = false;
+			} else {
+				$should_load = true;
+			}
+
+			$this->update_option( $option_key, wc_bool_to_string( $should_load ) );
+		} else {
+			$should_load = wc_string_to_bool( $should_load );
+		}
+
+		/**
+		 * Allow third-parties to filter whether PayPal Standard should be loaded or not.
+		 *
+		 * @since 5.5.0
+		 *
+		 * @param bool              $should_load Whether PayPal Standard should be loaded.
+		 * @param WC_Gateway_Paypal $this        The WC_Gateway_Paypal instance.
+		 */
+		return apply_filters( 'woocommerce_should_load_paypal_standard', $should_load, $this );
 	}
 }

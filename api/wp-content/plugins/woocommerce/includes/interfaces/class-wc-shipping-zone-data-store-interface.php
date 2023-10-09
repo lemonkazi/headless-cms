@@ -6,10 +6,6 @@
  * @package WooCommerce\Interface
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-	exit;
-}
-
 /**
  * WC Shipping Zone Data Store Interface.
  *
@@ -48,7 +44,7 @@ interface WC_Shipping_Zone_Data_Store_Interface {
 	/**
 	 * Delete a method instance.
 	 *
-	 * @param int $instance_id Intance ID.
+	 * @param int $instance_id Instance ID.
 	 */
 	public function delete_method( $instance_id );
 

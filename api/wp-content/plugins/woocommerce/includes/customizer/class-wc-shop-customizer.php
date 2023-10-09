@@ -117,7 +117,7 @@ class WC_Shop_Customizer {
 				} );
 
 				wp.customize.bind( 'ready', function() { // Ready?
-					$( '.woocommerce-cropping-control' ).find( 'input:checked' ).change();
+					$( '.woocommerce-cropping-control' ).find( 'input:checked' ).trigger( 'change' );
 				} );
 
 				wp.customize( 'woocommerce_demo_store', function( setting ) {
@@ -769,7 +769,7 @@ class WC_Shop_Customizer {
 			);
 		} else {
 			$choose_pages = array(
-				'woocommerce_terms_page_id'  => __( 'Terms and conditions', 'woocommerce' ),
+				'woocommerce_terms_page_id' => __( 'Terms and conditions', 'woocommerce' ),
 			);
 		}
 		$pages        = get_pages(
@@ -818,7 +818,7 @@ class WC_Shop_Customizer {
 				'description'     => __( 'Optionally add some text about your store privacy policy to show during checkout.', 'woocommerce' ),
 				'section'         => 'woocommerce_checkout',
 				'settings'        => 'woocommerce_checkout_privacy_policy_text',
-				'active_callback' => 'wc_privacy_policy_page_id',
+				'active_callback' => array( $this, 'has_privacy_policy_page_id' ),
 				'type'            => 'textarea',
 			)
 		);
@@ -830,7 +830,7 @@ class WC_Shop_Customizer {
 				'description'     => __( 'Optionally add some text for the terms checkbox that customers must accept.', 'woocommerce' ),
 				'section'         => 'woocommerce_checkout',
 				'settings'        => 'woocommerce_checkout_terms_and_conditions_checkbox_text',
-				'active_callback' => 'wc_terms_and_conditions_page_id',
+				'active_callback' => array( $this, 'has_terms_and_conditions_page_id' ),
 				'type'            => 'text',
 			)
 		);
@@ -865,6 +865,31 @@ class WC_Shop_Customizer {
 		$options = array( 'hidden', 'optional', 'required' );
 		return in_array( $value, $options, true ) ? $value : '';
 	}
+
+	/**
+	 * Whether or not a page has been chose for the privacy policy.
+	 *
+	 * @return bool
+	 */
+	public function has_privacy_policy_page_id() {
+		return wc_privacy_policy_page_id() > 0;
+	}
+
+	/**
+	 * Whether or not a page has been chose for the terms and conditions.
+	 *
+	 * @return bool
+	 */
+	public function has_terms_and_conditions_page_id() {
+		return wc_terms_and_conditions_page_id() > 0;
+	}
 }
 
-new WC_Shop_Customizer();
+global $pagenow;
+if (
+	$pagenow === 'customize.php' ||
+	isset( $_REQUEST['customize_theme'] ) || // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	! wc_current_theme_is_fse_theme()
+) {
+	new WC_Shop_Customizer();
+}

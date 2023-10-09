@@ -29,6 +29,20 @@ class WC_Gateway_BACS extends WC_Payment_Gateway {
 	public $locale;
 
 	/**
+	 * Gateway instructions that will be added to the thank you page and emails.
+	 *
+	 * @var string
+	 */
+	public $instructions;
+
+	/**
+	 * Account details.
+	 *
+	 * @var array
+	 */
+	public $account_details;
+
+	/**
 	 * Constructor for the gateway.
 	 */
 	public function __construct() {
@@ -37,7 +51,7 @@ class WC_Gateway_BACS extends WC_Payment_Gateway {
 		$this->icon               = apply_filters( 'woocommerce_bacs_icon', '' );
 		$this->has_fields         = false;
 		$this->method_title       = __( 'Direct bank transfer', 'woocommerce' );
-		$this->method_description = __( 'Take payments in person via BACS. More commonly known as direct bank/wire transfer', 'woocommerce' );
+		$this->method_description = __( 'Take payments in person via BACS. More commonly known as direct bank/wire transfer.', 'woocommerce' );
 
 		// Load the settings.
 		$this->init_form_fields();
@@ -86,7 +100,7 @@ class WC_Gateway_BACS extends WC_Payment_Gateway {
 			),
 			'title'           => array(
 				'title'       => __( 'Title', 'woocommerce' ),
-				'type'        => 'text',
+				'type'        => 'safe_text',
 				'description' => __( 'This controls the title which the user sees during checkout.', 'woocommerce' ),
 				'default'     => __( 'Direct bank transfer', 'woocommerce' ),
 				'desc_tip'    => true,
@@ -233,6 +247,7 @@ class WC_Gateway_BACS extends WC_Payment_Gateway {
 		}
 		// phpcs:enable
 
+		do_action( 'woocommerce_update_option', array( 'id' => 'woocommerce_bacs_accounts' ) );
 		update_option( 'woocommerce_bacs_accounts', $accounts );
 	}
 
@@ -258,8 +273,14 @@ class WC_Gateway_BACS extends WC_Payment_Gateway {
 	 * @param bool     $plain_text Email format: plain text or HTML.
 	 */
 	public function email_instructions( $order, $sent_to_admin, $plain_text = false ) {
-
-		if ( ! $sent_to_admin && 'bacs' === $order->get_payment_method() && $order->has_status( 'on-hold' ) ) {
+		/**
+		 * Filter the email instructions order status.
+		 *
+		 * @since 7.4
+		 * @param string $terms The order status.
+		 * @param object $order The order object.
+		 */
+		if ( ! $sent_to_admin && 'bacs' === $order->get_payment_method() && $order->has_status( apply_filters( 'woocommerce_bacs_email_instructions_order_status', 'on-hold', $order ) ) ) {
 			if ( $this->instructions ) {
 				echo wp_kses_post( wpautop( wptexturize( $this->instructions ) ) . PHP_EOL );
 			}

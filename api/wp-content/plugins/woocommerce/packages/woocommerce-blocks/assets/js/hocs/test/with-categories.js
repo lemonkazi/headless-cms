@@ -1,3 +1,6 @@
+// We need to disable the following eslint check as it's only applicable
+// to testing-library/react not `react-test-renderer` used here
+/* eslint-disable testing-library/await-async-query */
 /**
  * External dependencies
  */
@@ -97,7 +100,7 @@ describe( 'withCategories Component', () => {
 			expect( formatError ).toHaveBeenCalledTimes( 1 );
 			expect( props.error ).toEqual( formattedError );
 			expect( props.isLoading ).toBe( false );
-			expect( props.categories ).toBeNull();
+			expect( props.categories ).toEqual( [] );
 		} );
 	} );
 } );

@@ -7,6 +7,17 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/**
+ * Allow plugins to determine whether refunds UI should be rendered in the template.
+ *
+ * @since 6.4.0
+ *
+ * @param bool     $render_refunds If the refunds UI should be rendered.
+ * @param int      $order_id       The Order ID.
+ * @param WC_Order $order          The Order object.
+ */
+$render_refunds = (bool) apply_filters( 'woocommerce_admin_order_should_render_refunds', 0 < $order->get_total() - $order->get_total_refunded() || 0 < absint( $order->get_item_count() - $order->get_item_count_refunded() ), $order->get_id(), $order );
+
 global $wpdb;
 
 $payment_gateway     = wc_get_payment_gateway_by_order( $order );
@@ -189,7 +200,10 @@ if ( wc_tax_enabled() ) {
 					<td class="label"><?php echo esc_html( $tax_total->label ); ?>:</td>
 					<td width="1%"></td>
 					<td class="total">
-						<?php echo wc_price( $tax_total->amount, array( 'currency' => $order->get_currency() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+						<?php
+							// We use wc_round_tax_total here because tax may need to be round up or round down depending upon settings, whereas wc_price alone will always round it down.
+							echo wc_price( wc_round_tax_total( $tax_total->amount ), array( 'currency' => $order->get_currency() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+						?>
 					</td>
 				</tr>
 			<?php endforeach; ?>
@@ -277,9 +291,9 @@ if ( wc_tax_enabled() ) {
 				<button type="button" class="button add-coupon"><?php esc_html_e( 'Apply coupon', 'woocommerce' ); ?></button>
 			<?php endif; ?>
 		<?php else : ?>
-			<span class="description"><?php echo wc_help_tip( __( 'To edit this order change the status back to "Pending"', 'woocommerce' ) ); ?> <?php esc_html_e( 'This order is no longer editable.', 'woocommerce' ); ?></span>
+			<span class="description"><?php echo wc_help_tip( __( 'To edit this order change the status back to "Pending payment"', 'woocommerce' ) ); ?> <?php esc_html_e( 'This order is no longer editable.', 'woocommerce' ); ?></span>
 		<?php endif; ?>
-		<?php if ( 0 < $order->get_total() - $order->get_total_refunded() || 0 < absint( $order->get_item_count() - $order->get_item_count_refunded() ) ) : ?>
+		<?php if ( $render_refunds ) : ?>
 			<button type="button" class="button refund-items"><?php esc_html_e( 'Refund', 'woocommerce' ); ?></button>
 		<?php endif; ?>
 		<?php
@@ -305,7 +319,7 @@ if ( wc_tax_enabled() ) {
 	<button type="button" class="button cancel-action"><?php esc_html_e( 'Cancel', 'woocommerce' ); ?></button>
 	<button type="button" class="button button-primary save-action"><?php esc_html_e( 'Save', 'woocommerce' ); ?></button>
 </div>
-<?php if ( 0 < $order->get_total() - $order->get_total_refunded() || 0 < absint( $order->get_item_count() - $order->get_item_count_refunded() ) ) : ?>
+<?php if ( $render_refunds ) : ?>
 <div class="wc-order-data-row wc-order-refund-items wc-order-data-row-toggle" style="display: none;">
 	<table class="wc-order-totals">
 		<?php if ( 'yes' === get_option( 'woocommerce_manage_stock' ) ) : ?>

@@ -3,7 +3,8 @@
  */
 import { getCategories, setCategories } from '@wordpress/blocks';
 import { __ } from '@wordpress/i18n';
-import { woo, atom, Icon } from '@woocommerce/icons';
+import { woo } from '@woocommerce/icons';
+import { Icon } from '@wordpress/icons';
 
 /**
  * Internal dependencies
@@ -12,6 +13,7 @@ import '../css/editor.scss';
 import '../css/style.scss';
 import './filters/block-list-block';
 import './filters/get-block-attributes';
+import './base/components/notice-banner/style.scss';
 
 setCategories( [
 	...getCategories().filter(
@@ -21,7 +23,7 @@ setCategories( [
 	{
 		slug: 'woocommerce',
 		title: __( 'WooCommerce', 'woocommerce' ),
-		icon: <Icon srcElement={ woo } />,
+		icon: <Icon icon={ woo } />,
 	},
 	{
 		slug: 'woocommerce-product-elements',
@@ -29,6 +31,11 @@ setCategories( [
 			'WooCommerce Product Elements',
 			'woocommerce'
 		),
-		icon: <Icon srcElement={ atom } style={ { fill: '#874FB9' } } />,
+		icon: (
+			<Icon
+				icon={ woo }
+				className="wc-block-editor-components-block-icon"
+			/>
+		),
 	},
 ] );

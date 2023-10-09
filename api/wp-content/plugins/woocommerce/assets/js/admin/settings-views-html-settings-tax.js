@@ -18,7 +18,7 @@
 			$table             = $( '.wc_tax_rates' ),
 			$tbody             = $( '#rates' ),
 			$save_button       = $( ':input[name="save"]' ),
-			$pagination        = $( '#rates-pagination' ),
+			$pagination        = $( '#rates-pagination, #rates-bottom-pagination' ),
 			$search_field      = $( '#rates-search .wc-tax-rates-search-field' ),
 			$submit            = $( '.submit .button-primary[type=submit]' ),
 			WCTaxTableModelConstructor = Backbone.Model.extend({
@@ -167,7 +167,7 @@
 
 					// Postcode and city don't have `name` values by default.
 					// They're only created if the contents changes, to save on database queries (I think)
-					this.$el.find( 'td.postcode input, td.city input' ).change( function() {
+					this.$el.find( 'td.postcode input, td.city input' ).on( 'change', function() {
 						$( this ).attr( 'name', $( this ).data( 'name' ) );
 					});
 

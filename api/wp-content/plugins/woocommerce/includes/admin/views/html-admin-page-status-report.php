@@ -5,14 +5,11 @@
  * @package WooCommerce
  */
 
+use Automattic\Jetpack\Constants;
+
 defined( 'ABSPATH' ) || exit;
 
 global $wpdb;
-
-if ( ! defined( 'WC_SSR_PLUGIN_UPDATE_RELEASE_VERSION_TYPE' ) ) {
-	// Define if we're checking against major or minor versions.
-	define( 'WC_SSR_PLUGIN_UPDATE_RELEASE_VERSION_TYPE', 'major' );
-}
 
 $report             = wc()->api->get_endpoint_data( '/wc/v3/system_status' );
 $environment        = $report['environment'];
@@ -26,7 +23,7 @@ $security           = $report['security'];
 $settings           = $report['settings'];
 $wp_pages           = $report['pages'];
 $plugin_updates     = new WC_Plugin_Updates();
-$untested_plugins   = $plugin_updates->get_untested_plugins( WC()->version, WC_SSR_PLUGIN_UPDATE_RELEASE_VERSION_TYPE );
+$untested_plugins   = $plugin_updates->get_untested_plugins( WC()->version, Constants::get_constant( 'WC_SSR_PLUGIN_UPDATE_RELEASE_VERSION_TYPE' ) );
 ?>
 <div class="updated woocommerce-message inline">
 	<p>
@@ -41,7 +38,10 @@ $untested_plugins   = $plugin_updates->get_untested_plugins( WC()->version, WC_S
 	<div id="debug-report">
 		<textarea readonly="readonly"></textarea>
 		<p class="submit">
-			<button id="copy-for-support" class="button-primary" href="#" data-tip="<?php esc_attr_e( 'Copied!', 'woocommerce' ); ?>">
+			<button id="download-for-support" class="button-primary" href="#">
+				<?php esc_html_e( 'Download for support', 'woocommerce' ); ?>
+			</button>
+			<button id="copy-for-support" class="button" href="#" data-tip="<?php esc_attr_e( 'Copied!', 'woocommerce' ); ?>">
 				<?php esc_html_e( 'Copy for support', 'woocommerce' ); ?>
 			</button>
 		</p>
@@ -123,54 +123,6 @@ $untested_plugins   = $plugin_updates->get_untested_plugins( WC()->version, WC_S
 					echo '<mark class="yes"><span class="dashicons dashicons-yes"></span> ' . esc_html( $version ) . ' <code class="private">' . esc_html( $path ) . '</code></mark> ';
 				} else {
 					echo '<mark class="error"><span class="dashicons dashicons-warning"></span> ' . esc_html__( 'Unable to detect the Action Scheduler package.', 'woocommerce' ) . '</mark>';
-				}
-				?>
-			</td>
-		</tr>
-		<tr>
-			<td data-export-label="WC Admin Version"><?php esc_html_e( 'WooCommerce Admin package', 'woocommerce' ); ?>:</td>
-			<td class="help"><?php echo wc_help_tip( esc_html__( 'The WooCommerce Admin package running on your site.', 'woocommerce' ) ); ?></td>
-			<td>
-				<?php
-				$wc_admin_path = null;
-				if ( defined( 'WC_ADMIN_VERSION_NUMBER' ) ) {
-					// Plugin version of WC Admin.
-					$version        = WC_ADMIN_VERSION_NUMBER;
-					$package_active = false;
-				} elseif ( class_exists( '\Automattic\WooCommerce\Admin\Composer\Package' ) ) {
-					if ( WC()->is_wc_admin_active() ) {
-						// Fully active package version of WC Admin.
-						$version        = \Automattic\WooCommerce\Admin\Composer\Package::get_active_version();
-						$package_active = \Automattic\WooCommerce\Admin\Composer\Package::is_package_active();
-					} else {
-						// with WP version < 5.3, package is present, but inactive.
-						$version = sprintf(
-							/* translators: %s: Version number of wc-admin package */
-							__( 'Inactive %s', 'woocommerce' ),
-							\Automattic\WooCommerce\Admin\Composer\Package::VERSION
-						);
-						$package_active = false;
-					}
-					$wc_admin_path = \Automattic\WooCommerce\Admin\Composer\Package::get_path();
-				} else {
-					$version = null;
-				}
-
-				if ( ! is_null( $version ) ) {
-					if ( ! isset( $wc_admin_path ) ) {
-						if ( defined( 'WC_ADMIN_PLUGIN_FILE' ) ) {
-							$wc_admin_path = dirname( WC_ADMIN_PLUGIN_FILE );
-						} else {
-							$wc_admin_path = __( 'Active Plugin', 'woocommerce' );
-						}
-					}
-					if ( WC()->is_wc_admin_active() ) {
-						echo '<mark class="yes"><span class="dashicons dashicons-yes"></span> ' . esc_html( $version ) . ' <code class="private">' . esc_html( $wc_admin_path ) . '</code></mark> ';
-					} else {
-						echo '<span class="dashicons dashicons-no-alt"></span> ' . esc_html( $version ) . ' <code class="private">' . esc_html( $wc_admin_path ) . '</code> ';
-					}
-				} else {
-					echo '<mark class="error"><span class="dashicons dashicons-warning"></span> ' . esc_html__( 'Unable to detect the WC Admin package.', 'woocommerce' ) . '</mark>';
 				}
 				?>
 			</td>
@@ -517,7 +469,7 @@ $untested_plugins   = $plugin_updates->get_untested_plugins( WC()->version, WC_S
 	<tbody>
 		<tr>
 			<td data-export-label="WC Database Version"><?php esc_html_e( 'WooCommerce database version', 'woocommerce' ); ?>:</td>
-			<td class="help"><?php echo wc_help_tip( esc_html__( 'The version of WooCommerce that the database is formatted for. This should be the same as your WooCommerce version.', 'woocommerce' ) ); /* phpcs:ignore WordPress.XSS.EscapeOutput.OutputNotEscaped */ ?></td>
+			<td class="help"><?php echo wc_help_tip( esc_html__( 'The database version for WooCommerce. This should be the same as your WooCommerce version.', 'woocommerce' ) ); /* phpcs:ignore WordPress.XSS.EscapeOutput.OutputNotEscaped */ ?></td>
 			<td><?php echo esc_html( $database['wc_database_version'] ); ?></td>
 		</tr>
 		<tr>
@@ -777,7 +729,7 @@ if ( 0 < count( $dropins_mu_plugins['mu_plugins'] ) ) :
 			<td><?php echo esc_html( $settings['number_of_decimals'] ); ?></td>
 		</tr>
 		<tr>
-			<td data-export-label="Taxonomies: Product Types"><?php esc_html_e( 'Taxonomies: Product types', 'woocommerce' ); ?></th>
+			<td data-export-label="Taxonomies: Product Types"><?php esc_html_e( 'Taxonomies: Product types', 'woocommerce' ); ?></td>
 			<td class="help"><?php echo wc_help_tip( esc_html__( 'A list of taxonomy terms that can be used in regard to order/product statuses.', 'woocommerce' ) ); /* phpcs:ignore WordPress.XSS.EscapeOutput.OutputNotEscaped */ ?></td>
 			<td>
 				<?php
@@ -790,7 +742,7 @@ if ( 0 < count( $dropins_mu_plugins['mu_plugins'] ) ) :
 			</td>
 		</tr>
 		<tr>
-			<td data-export-label="Taxonomies: Product Visibility"><?php esc_html_e( 'Taxonomies: Product visibility', 'woocommerce' ); ?></th>
+			<td data-export-label="Taxonomies: Product Visibility"><?php esc_html_e( 'Taxonomies: Product visibility', 'woocommerce' ); ?></td>
 			<td class="help"><?php echo wc_help_tip( esc_html__( 'A list of taxonomy terms used for product visibility.', 'woocommerce' ) ); /* phpcs:ignore WordPress.XSS.EscapeOutput.OutputNotEscaped */ ?></td>
 			<td>
 				<?php
@@ -807,6 +759,33 @@ if ( 0 < count( $dropins_mu_plugins['mu_plugins'] ) ) :
 			<td class="help"><?php echo wc_help_tip( esc_html__( 'Is your site connected to WooCommerce.com?', 'woocommerce' ) ); /* phpcs:ignore WordPress.XSS.EscapeOutput.OutputNotEscaped */ ?></td>
 			<td><?php echo 'yes' === $settings['woocommerce_com_connected'] ? '<mark class="yes"><span class="dashicons dashicons-yes"></span></mark>' : '<mark class="no">&ndash;</mark>'; ?></td>
 		</tr>
+		<tr>
+			<td data-export-label="Enforce Approved Product Download Directories"><?php esc_html_e( 'Enforce Approved Product Download Directories', 'woocommerce' ); ?>:</td>
+			<td class="help"><?php echo wc_help_tip( esc_html__( 'Is your site enforcing the use of Approved Product Download Directories?', 'woocommerce' ) ); /* phpcs:ignore WordPress.XSS.EscapeOutput.OutputNotEscaped */ ?></td>
+			<td><?php echo $settings['enforce_approved_download_dirs'] ? '<mark class="yes"><span class="dashicons dashicons-yes"></span></mark>' : '<mark class="no">&ndash;</mark>'; ?></td>
+		</tr>
+
+		<tr>
+			<td data-export-label="HPOS feature screen enabled"><?php esc_html_e( 'HPOS feature screen enabled:', 'woocommerce' ); ?></td>
+			<td class="help"><?php echo wc_help_tip( esc_html__( 'Is HPOS feature screen enabled?', 'woocommerce' ) ); ?></td>
+			<td><?php echo $settings['HPOS_feature_screen_enabled'] ? '<mark class="yes"><span class="dashicons dashicons-yes"></span></mark>' : '<mark class="no">&ndash;</mark>'; ?></td>
+		</tr>
+		<tr>
+			<td data-export-label="HPOS feature enabled"><?php esc_html_e( 'HPOS enabled:', 'woocommerce' ); ?></td>
+			<td class="help"><?php echo wc_help_tip( esc_html__( 'Is HPOS enabled?', 'woocommerce' ) ); ?></td>
+			<td><?php echo $settings['HPOS_enabled'] ? '<mark class="yes"><span class="dashicons dashicons-yes"></span></mark>' : '<mark class="no">&ndash;</mark>'; ?></td>
+		</tr>
+		<tr>
+			<td data-export-label="Order datastore"><?php esc_html_e( 'Order datastore:', 'woocommerce' ); ?></td>
+			<td class="help"><?php echo wc_help_tip( esc_html__( 'Datastore currently in use for orders.', 'woocommerce' ) ); ?></td>
+			<td><?php echo esc_html( $settings['order_datastore'] ); ?></td>
+		</tr>
+		<tr>
+			<td data-export-label="HPOS data sync enabled"><?php esc_html_e( 'HPOS data sync enabled:', 'woocommerce' ); ?></td>
+			<td class="help"><?php echo wc_help_tip( esc_html__( 'Is data sync enabled for HPOS?', 'woocommerce' ) ); ?></td>
+			<td><?php echo $settings['HPOS_sync_enabled'] ? '<mark class="yes"><span class="dashicons dashicons-yes"></span></mark>' : '<mark class="no">&ndash;</mark>'; ?></td>
+		</tr>
+
 	</tbody>
 </table>
 <table class="wc_status_table widefat" cellspacing="0">
@@ -844,10 +823,11 @@ if ( 0 < count( $dropins_mu_plugins['mu_plugins'] ) ) :
 				echo '<mark class="error"><span class="dashicons dashicons-warning"></span> ' . wp_kses_post( sprintf( __( 'Page visibility should be <a href="%s" target="_blank">public</a>', 'woocommerce' ), 'https://wordpress.org/support/article/content-visibility/' ) ) . '</mark>';
 				$found_error = true;
 			} else {
-				// Shortcode check.
-				if ( $_page['shortcode_required'] ) {
-					if ( ! $_page['shortcode_present'] ) {
-						echo '<mark class="error"><span class="dashicons dashicons-warning"></span> ' . sprintf( esc_html__( 'Page does not contain the shortcode.', 'woocommerce' ), esc_html( $_page['shortcode'] ) ) . '</mark>';
+				// Shortcode and block check.
+				if ( $_page['shortcode_required'] || $_page['block_required'] ) {
+					if ( ! $_page['shortcode_present'] && ! $_page['block_present'] ) {
+						/* Translators: %1$s: shortcode text, %2$s: block slug. */
+						echo '<mark class="error"><span class="dashicons dashicons-warning"></span> ' . ( $_page['block_required'] ? sprintf( esc_html__( 'Page does not contain the %1$s shortcode or the %2$s block.', 'woocommerce' ), esc_html( $_page['shortcode'] ), esc_html( $_page['block'] ) ) : sprintf( esc_html__( 'Page does not contain the %s shortcode.', 'woocommerce' ), esc_html( $_page['shortcode'] ) ) ) . '</mark>'; /* phpcs:ignore WordPress.XSS.EscapeOutput.OutputNotEscaped */
 						$found_error = true;
 					}
 				}
@@ -1016,3 +996,19 @@ if ( 0 < count( $dropins_mu_plugins['mu_plugins'] ) ) :
 </table>
 
 <?php do_action( 'woocommerce_system_status_report' ); ?>
+
+<table class="wc_status_table widefat" cellspacing="0">
+	<thead>
+	<tr>
+		<th colspan="3" data-export-label="Status report information"><h2><?php esc_html_e( 'Status report information', 'woocommerce' ); ?><?php echo wc_help_tip( esc_html__( 'This section shows information about this status report.', 'woocommerce' ) ); ?></h2></th>
+	</tr>
+	</thead>
+	<tbody>
+	<tr>
+		<td data-export-label="Generated at"><?php esc_html_e( 'Generated at', 'woocommerce' ); ?>:</td>
+		<td class="help">&nbsp;</td>
+		<td><?php echo esc_html( current_time( 'Y-m-d H:i:s P' ) ); ?></td>
+
+	</tr>
+	</tbody>
+</table>

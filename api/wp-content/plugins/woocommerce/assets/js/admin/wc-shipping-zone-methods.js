@@ -34,11 +34,17 @@
 					this.trigger( 'change:methods' );
 				},
 				save: function() {
+					// Special handling for an empty 'zone_locations' array, which jQuery filters out during $.post().
+					var changes = _.clone( this.changes );
+					if ( _.has( changes, 'zone_locations' ) && _.isEmpty( changes.zone_locations ) ) {
+						changes.zone_locations = [''];
+					}
+
 					$.post(
 						ajaxurl + ( ajaxurl.indexOf( '?' ) > 0 ? '&' : '?' ) + 'action=woocommerce_shipping_zone_methods_save_changes',
 						{
 							wc_shipping_zones_nonce : data.wc_shipping_zones_nonce,
-							changes                 : this.changes,
+							changes                 : changes,
 							zone_id                 : data.zone_id
 						},
 						this.onSaveResponse,
@@ -62,6 +68,9 @@
 							shippingMethod.trigger( 'change:methods' );
 							shippingMethod.changes = {};
 							shippingMethod.trigger( 'saved:methods' );
+
+							// Overrides the onbeforeunload callback added by settings.js.
+							window.onbeforeunload = null;
 						} else {
 							window.alert( data.strings.save_failed );
 						}
@@ -76,6 +85,7 @@
 					this.listenTo( this.model, 'change:methods', this.setUnloadConfirmation );
 					this.listenTo( this.model, 'saved:methods', this.clearUnloadConfirmation );
 					this.listenTo( this.model, 'saved:methods', this.render );
+					this.listenTo( this.model, 'rerender', this.render );
 					$tbody.on( 'change', { view: this }, this.updateModelOnChange );
 					$tbody.on( 'sortupdate', { view: this }, this.updateModelOnSort );
 					$( window ).on( 'beforeunload', { view: this }, this.unloadConfirmation );
@@ -188,16 +198,37 @@
 						model   = view.model,
 						methods   = _.indexBy( model.get( 'methods' ), 'instance_id' ),
 						changes = {},
-						instance_id = $( this ).closest('tr').data('id');
+						instance_id = $( this ).closest( 'tr' ).data( 'id' );
 
 					event.preventDefault();
 
-					delete methods[ instance_id ];
-					changes.methods = changes.methods || { methods : {} };
-					changes.methods[ instance_id ] = _.extend( changes.methods[ instance_id ] || {}, { deleted : 'deleted' } );
-					model.set( 'methods', methods );
-					model.logChanges( changes );
-					view.render();
+					if ( window.confirm( data.strings.delete_shipping_method_confirmation ) ) {
+						shippingMethodView.block();
+
+						// Add method to zone via ajax call
+						$.post( {
+							url: ajaxurl + ( ajaxurl.indexOf( '?' ) > 0 ? '&' : '?') + 'action=woocommerce_shipping_zone_remove_method',
+							data: {
+								wc_shipping_zones_nonce: data.wc_shipping_zones_nonce,
+								instance_id: instance_id,
+								zone_id: data.zone_id,
+							},
+							success: function( { data } ) {
+								delete methods[instance_id];
+								changes.methods = changes.methods || data.methods;
+								model.set('methods', methods);
+								model.logChanges( changes );
+								view.clearUnloadConfirmation();
+								view.render();
+								shippingMethodView.unblock();
+							},
+							error: function( jqXHR, textStatus, errorThrown ) {
+								window.alert( data.strings.remove_method_failed );
+								shippingMethodView.unblock();
+							},
+							dataType: 'json'
+						});
+					}
 				},
 				onToggleEnabled: function( event ) {
 					var view        = event.data.view,
@@ -218,7 +249,7 @@
 				},
 				setUnloadConfirmation: function() {
 					this.needsUnloadConfirm = true;
-					$save_button.removeAttr( 'disabled' );
+					$save_button.prop( 'disabled', false );
 				},
 				clearUnloadConfirmation: function() {
 					this.needsUnloadConfirm = false;
@@ -354,7 +385,7 @@
 						}
 					});
 
-					$( '.wc-shipping-zone-method-selector select' ).change();
+					$( '.wc-shipping-zone-method-selector select' ).trigger( 'change' );
 				},
 				onAddShippingMethodSubmitted: function( event, target, posted_data ) {
 					if ( 'wc-modal-add-shipping-method' === target ) {
@@ -379,11 +410,12 @@
 								}
 								// Trigger save if there are changes, or just re-render
 								if ( _.size( shippingMethodView.model.changes ) ) {
-									shippingMethodView.model.save();
+									shippingMethodView.model.set( 'methods', response.data.methods );
+									shippingMethodView.model.trigger( 'change:methods' );
+									shippingMethodView.model.trigger( 'rerender' );
 								} else {
 									shippingMethodView.model.set( 'methods', response.data.methods );
 									shippingMethodView.model.trigger( 'change:methods' );
-									shippingMethodView.model.changes = {};
 									shippingMethodView.model.trigger( 'saved:methods' );
 								}
 							}

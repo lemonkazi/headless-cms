@@ -30,7 +30,8 @@ class WC_Settings_Accounts extends WC_Settings_Page {
 	 *
 	 * @return array
 	 */
-	public function get_settings() {
+	protected function get_settings_for_default_section() {
+
 		$erasure_text = esc_html__( 'account erasure request', 'woocommerce' );
 		$privacy_text = esc_html__( 'privacy page', 'woocommerce' );
 		if ( current_user_can( 'manage_privacy_options' ) ) {
@@ -92,7 +93,7 @@ class WC_Settings_Accounts extends WC_Settings_Page {
 				'autoload'      => false,
 			),
 			array(
-				'desc'          => __( 'When creating an account, automatically generate an account password', 'woocommerce' ),
+				'desc'          => __( 'When creating an account, send the new user a link to set their password', 'woocommerce' ),
 				'id'            => 'woocommerce_registration_generate_password',
 				'default'       => 'yes',
 				'type'          => 'checkbox',
@@ -228,12 +229,10 @@ class WC_Settings_Accounts extends WC_Settings_Page {
 			),
 		);
 
-		$settings = apply_filters(
+		return apply_filters(
 			'woocommerce_' . $this->id . '_settings',
 			$account_settings
 		);
-
-		return apply_filters( 'woocommerce_get_settings_' . $this->id, $settings );
 	}
 }
 

@@ -57,6 +57,10 @@ class WC_Helper_Updater {
 				'upgrade_notice' => $data['upgrade_notice'],
 			);
 
+			if ( isset( $data['requires_php'] ) ) {
+				$item['requires_php'] = $data['requires_php'];
+			}
+
 			// We don't want to deliver a valid upgrade package when their subscription has expired.
 			// To avoid the generic "no_package" error that empty strings give, we will store an
 			// indication of expiration for the `upgrader_pre_download` filter to error on.
@@ -121,6 +125,37 @@ class WC_Helper_Updater {
 	}
 
 	/**
+	 * Get update data for all plugins.
+	 *
+	 * @return array Update data {product_id => data}
+	 * @see get_update_data
+	 */
+	public static function get_available_extensions_downloads_data() {
+		$payload = array();
+
+		// Scan subscriptions.
+		foreach ( WC_Helper::get_subscriptions() as $subscription ) {
+			$payload[ $subscription['product_id'] ] = array(
+				'product_id' => $subscription['product_id'],
+				'file_id'    => '',
+			);
+		}
+
+		// Scan local plugins which may or may not have a subscription.
+		foreach ( WC_Helper::get_local_woo_plugins() as $data ) {
+			if ( ! isset( $payload[ $data['_product_id'] ] ) ) {
+				$payload[ $data['_product_id'] ] = array(
+					'product_id' => $data['_product_id'],
+				);
+			}
+
+			$payload[ $data['_product_id'] ]['file_id'] = $data['_file_id'];
+		}
+
+		return self::_update_check( $payload );
+	}
+
+	/**
 	 * Get update data for all extensions.
 	 *
 	 * Scans through all subscriptions for the connected user, as well
@@ -166,7 +201,7 @@ class WC_Helper_Updater {
 	}
 
 	/**
-	 * Get translations updates informations.
+	 * Get translations updates information.
 	 *
 	 * Scans through all subscriptions for the connected user, as well
 	 * as all Woo extensions without a subscription, and obtains update
@@ -191,7 +226,7 @@ class WC_Helper_Updater {
 		$locales = apply_filters( 'plugins_update_check_locales', $locales );
 		$locales = array_unique( $locales );
 
-		// No locales, the respone will be empty, we can return now.
+		// No locales, the response will be empty, we can return now.
 		if ( empty( $locales ) ) {
 			return array();
 		}

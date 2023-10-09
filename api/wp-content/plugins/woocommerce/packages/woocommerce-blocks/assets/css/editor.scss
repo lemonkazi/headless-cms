@@ -1,28 +1,17 @@
-// Import the woocommerce components stylesheet
-@import "~@woocommerce/components/build-style/style.css";
-
-// Hack to hide preview overflow.
-.editor-block-preview__content {
-	overflow: hidden;
-}
-
-// Align the block icons in edit mode
-.components-placeholder__label .gridicon,
-.components-placeholder__label .material-icon {
-	margin-right: 1ch;
-	fill: currentColor;
-}
-
 // Remove the list styling, which is added back by core GB styles.
 .editor-styles-wrapper {
 	.wc-block-grid {
 		.wc-block-grid__products {
 			list-style: none;
-			margin: 0 (-$gap/2) $gap;
+			margin: 0 (-$gap * 0.5) $gap;
 			padding: 0;
 
 			.wc-block-grid__product {
 				margin: 0 0 $gap-large 0;
+
+				.wc-block-grid__product-onsale {
+					position: absolute;
+				}
 			}
 		}
 
@@ -43,21 +32,31 @@
 		margin: -$gap 0 $gap;
 	}
 
-	& + .wc-block-base-control-notice:last-child {
+	+ .wc-block-base-control-notice:last-child {
 		margin: -$gap 0 $gap-small;
 	}
 }
 
-// Adds border to placeholder lists, so they can be distinguished from the white background.
-.components-placeholder .woocommerce-search-list__list {
-	border: 1px solid $gray-200;
+svg.wc-block-editor-components-block-icon--sparkles path {
+	fill: currentColor;
 }
 
-// Work-around to make the SearchList component work fine with the last versions of @wordpress/components.
-// Ideally it should be possible to remove this once this issue is fixed in WC Admin:
-// https://github.com/woocommerce/woocommerce-admin/issues/4349
-.components-placeholder .woocommerce-search-list__list .woocommerce-search-list__item {
-	border-radius: 0;
-	height: auto;
-	text-align: left;
+.block-editor-list-view-leaf.is-selected {
+	.block-editor-list-view-block-contents {
+		svg.wc-block-editor-components-block-icon {
+			color: currentColor;
+		}
+	}
+}
+
+.theme-twentytwenty {
+	.wp-block {
+		.wc-block-grid__product-title,
+		.wc-block-active-filters__title,
+		.wc-block-attribute-filter__title,
+		.wc-block-price-filter__title,
+		.wc-block-stock-filter__title {
+			@include font-size(regular);
+		}
+	}
 }

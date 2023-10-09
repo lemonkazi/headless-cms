@@ -1,95 +1,124 @@
 <?php
-namespace Automattic\WooCommerce\Blocks\StoreApi;
+namespace Automattic\WooCommerce\StoreApi;
 
+use Automattic\WooCommerce\Blocks\Package;
+use Automattic\WooCommerce\StoreApi\SchemaController;
+use Exception;
 use Routes\AbstractRoute;
 
 /**
  * RoutesController class.
- *
- * @internal This API is used internally by Blocks--it is still in flux and may be subject to revisions.
  */
 class RoutesController {
-
 	/**
-	 * Stores schemas.
+	 * Stores schema_controller.
 	 *
 	 * @var SchemaController
 	 */
-	protected $schemas;
+	protected $schema_controller;
 
 	/**
 	 * Stores routes.
 	 *
-	 * @var AbstractRoute[]
+	 * @var array
 	 */
 	protected $routes = [];
 
 	/**
 	 * Constructor.
 	 *
-	 * @param SchemaController $schemas Schema controller class passed to each route.
+	 * @param SchemaController $schema_controller Schema controller class passed to each route.
 	 */
-	public function __construct( SchemaController $schemas ) {
-		$this->schemas = $schemas;
-		$this->initialize();
+	public function __construct( SchemaController $schema_controller ) {
+		$this->schema_controller = $schema_controller;
+		$this->routes            = [
+			'v1' => [
+				Routes\V1\Batch::IDENTIFIER              => Routes\V1\Batch::class,
+				Routes\V1\Cart::IDENTIFIER               => Routes\V1\Cart::class,
+				Routes\V1\CartAddItem::IDENTIFIER        => Routes\V1\CartAddItem::class,
+				Routes\V1\CartApplyCoupon::IDENTIFIER    => Routes\V1\CartApplyCoupon::class,
+				Routes\V1\CartCoupons::IDENTIFIER        => Routes\V1\CartCoupons::class,
+				Routes\V1\CartCouponsByCode::IDENTIFIER  => Routes\V1\CartCouponsByCode::class,
+				Routes\V1\CartExtensions::IDENTIFIER     => Routes\V1\CartExtensions::class,
+				Routes\V1\CartItems::IDENTIFIER          => Routes\V1\CartItems::class,
+				Routes\V1\CartItemsByKey::IDENTIFIER     => Routes\V1\CartItemsByKey::class,
+				Routes\V1\CartRemoveCoupon::IDENTIFIER   => Routes\V1\CartRemoveCoupon::class,
+				Routes\V1\CartRemoveItem::IDENTIFIER     => Routes\V1\CartRemoveItem::class,
+				Routes\V1\CartSelectShippingRate::IDENTIFIER => Routes\V1\CartSelectShippingRate::class,
+				Routes\V1\CartUpdateItem::IDENTIFIER     => Routes\V1\CartUpdateItem::class,
+				Routes\V1\CartUpdateCustomer::IDENTIFIER => Routes\V1\CartUpdateCustomer::class,
+				Routes\V1\Checkout::IDENTIFIER           => Routes\V1\Checkout::class,
+				Routes\V1\ProductAttributes::IDENTIFIER  => Routes\V1\ProductAttributes::class,
+				Routes\V1\ProductAttributesById::IDENTIFIER => Routes\V1\ProductAttributesById::class,
+				Routes\V1\ProductAttributeTerms::IDENTIFIER => Routes\V1\ProductAttributeTerms::class,
+				Routes\V1\ProductCategories::IDENTIFIER  => Routes\V1\ProductCategories::class,
+				Routes\V1\ProductCategoriesById::IDENTIFIER => Routes\V1\ProductCategoriesById::class,
+				Routes\V1\ProductCollectionData::IDENTIFIER => Routes\V1\ProductCollectionData::class,
+				Routes\V1\ProductReviews::IDENTIFIER     => Routes\V1\ProductReviews::class,
+				Routes\V1\ProductTags::IDENTIFIER        => Routes\V1\ProductTags::class,
+				Routes\V1\Products::IDENTIFIER           => Routes\V1\Products::class,
+				Routes\V1\ProductsById::IDENTIFIER       => Routes\V1\ProductsById::class,
+				Routes\V1\ProductsBySlug::IDENTIFIER     => Routes\V1\ProductsBySlug::class,
+			],
+		];
+
+		if ( Package::is_experimental_build() ) {
+			$this->routes['v1'][ Routes\V1\Order::IDENTIFIER ]         = Routes\V1\Order::class;
+			$this->routes['v1'][ Routes\V1\CheckoutOrder::IDENTIFIER ] = Routes\V1\CheckoutOrder::class;
+		}
+	}
+
+	/**
+	 * Register all Store API routes. This includes routes under specific version namespaces.
+	 */
+	public function register_all_routes() {
+		$this->register_routes( 'v1', 'wc/store' );
+		$this->register_routes( 'v1', 'wc/store/v1' );
 	}
 
 	/**
 	 * Get a route class instance.
 	 *
-	 * @throws Exception If the schema does not exist.
+	 * Each route class is instantized with the SchemaController instance, and its main Schema Type.
 	 *
+	 * @throws \Exception If the schema does not exist.
 	 * @param string $name Name of schema.
+	 * @param string $version API Version being requested.
 	 * @return AbstractRoute
 	 */
-	public function get( $name ) {
-		if ( ! isset( $this->routes[ $name ] ) ) {
-			throw new Exception( $name . ' route does not exist' );
+	public function get( $name, $version = 'v1' ) {
+		$route = $this->routes[ $version ][ $name ] ?? false;
+
+		if ( ! $route ) {
+			throw new \Exception( "{$name} {$version} route does not exist" );
 		}
-		return $this->routes[ $name ];
+
+		return new $route(
+			$this->schema_controller,
+			$this->schema_controller->get( $route::SCHEMA_TYPE, $route::SCHEMA_VERSION )
+		);
 	}
 
 	/**
 	 * Register defined list of routes with WordPress.
+	 *
+	 * @param string $version API Version being registered..
+	 * @param string $namespace Overrides the default route namespace.
 	 */
-	public function register_routes() {
-		foreach ( $this->routes as $route ) {
+	protected function register_routes( $version = 'v1', $namespace = 'wc/store/v1' ) {
+		if ( ! isset( $this->routes[ $version ] ) ) {
+			return;
+		}
+		$route_identifiers = array_keys( $this->routes[ $version ] );
+		foreach ( $route_identifiers as $route ) {
+			$route_instance = $this->get( $route, $version );
+			$route_instance->set_namespace( $namespace );
+
 			register_rest_route(
-				$route->get_namespace(),
-				$route->get_path(),
-				$route->get_args()
+				$route_instance->get_namespace(),
+				$route_instance->get_path(),
+				$route_instance->get_args()
 			);
 		}
-	}
-
-	/**
-	 * Load route class instances.
-	 */
-	protected function initialize() {
-		$this->routes = [
-			'cart'                      => new Routes\Cart( $this->schemas->get( 'cart' ) ),
-			'cart-add-item'             => new Routes\CartAddItem( $this->schemas->get( 'cart' ) ),
-			'cart-apply-coupon'         => new Routes\CartApplyCoupon( $this->schemas->get( 'cart' ) ),
-			'cart-coupons'              => new Routes\CartCoupons( $this->schemas->get( 'cart-coupon' ) ),
-			'cart-coupons-by-code'      => new Routes\CartCouponsByCode( $this->schemas->get( 'cart-coupon' ) ),
-			'cart-items'                => new Routes\CartItems( $this->schemas->get( 'cart-item' ) ),
-			'cart-items-by-key'         => new Routes\CartItemsByKey( $this->schemas->get( 'cart-item' ) ),
-			'cart-remove-coupon'        => new Routes\CartRemoveCoupon( $this->schemas->get( 'cart' ) ),
-			'cart-remove-item'          => new Routes\CartRemoveItem( $this->schemas->get( 'cart' ) ),
-			'cart-select-shipping-rate' => new Routes\CartSelectShippingRate( $this->schemas->get( 'cart' ) ),
-			'cart-update-item'          => new Routes\CartUpdateItem( $this->schemas->get( 'cart' ) ),
-			'cart-update-shipping'      => new Routes\CartUpdateShipping( $this->schemas->get( 'cart' ) ),
-			'checkout'                  => new Routes\Checkout( $this->schemas->get( 'checkout' ) ),
-			'product-attributes'        => new Routes\ProductAttributes( $this->schemas->get( 'product-attribute' ) ),
-			'product-attributes-by-id'  => new Routes\ProductAttributesById( $this->schemas->get( 'product-attribute' ) ),
-			'product-attribute-terms'   => new Routes\ProductAttributeTerms( $this->schemas->get( 'term' ) ),
-			'product-categories'        => new Routes\ProductCategories( $this->schemas->get( 'product-category' ) ),
-			'product-categories-by-id'  => new Routes\ProductCategoriesById( $this->schemas->get( 'product-category' ) ),
-			'product-collection-data'   => new Routes\ProductCollectionData( $this->schemas->get( 'product-collection-data' ) ),
-			'product-reviews'           => new Routes\ProductReviews( $this->schemas->get( 'product-review' ) ),
-			'product-tags'              => new Routes\ProductTags( $this->schemas->get( 'term' ) ),
-			'products'                  => new Routes\Products( $this->schemas->get( 'product' ) ),
-			'products-by-id'            => new Routes\ProductsById( $this->schemas->get( 'product' ) ),
-		];
 	}
 }

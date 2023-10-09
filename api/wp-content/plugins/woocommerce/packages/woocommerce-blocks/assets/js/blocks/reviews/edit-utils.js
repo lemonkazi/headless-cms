@@ -2,29 +2,28 @@
  * External dependencies
  */
 import { __ } from '@wordpress/i18n';
-import { createInterpolateElement } from 'wordpress-element';
+import { createInterpolateElement } from '@wordpress/element';
+import { BlockControls } from '@wordpress/block-editor';
+import { getAdminLink, getSetting } from '@woocommerce/settings';
 import {
 	Notice,
 	ToggleControl,
-	Toolbar,
+	ToolbarGroup,
 	RangeControl,
 	SelectControl,
+	// eslint-disable-next-line @wordpress/no-unsafe-wp-apis
+	__experimentalToggleGroupControl as ToggleGroupControl,
+	// eslint-disable-next-line @wordpress/no-unsafe-wp-apis
+	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
 } from '@wordpress/components';
-import { BlockControls } from '@wordpress/block-editor';
-import { getAdminLink } from '@woocommerce/settings';
-import {
-	REVIEW_RATINGS_ENABLED,
-	SHOW_AVATARS,
-} from '@woocommerce/block-settings';
-import ToggleButtonControl from '@woocommerce/editor-components/toggle-button-control';
 
-export const getBlockControls = ( editMode, setAttributes ) => (
+export const getBlockControls = ( editMode, setAttributes, buttonTitle ) => (
 	<BlockControls>
-		<Toolbar
+		<ToolbarGroup
 			controls={ [
 				{
 					icon: 'edit',
-					title: __( 'Edit', 'woocommerce' ),
+					title: buttonTitle,
 					onClick: () => setAttributes( { editMode: ! editMode } ),
 					isActive: editMode,
 				},
@@ -34,6 +33,8 @@ export const getBlockControls = ( editMode, setAttributes ) => (
 );
 
 export const getSharedReviewContentControls = ( attributes, setAttributes ) => {
+	const showAvatars = getSetting( 'showAvatars', true );
+	const reviewRatingsEnabled = getSetting( 'reviewRatingsEnabled', true );
 	return (
 		<>
 			<ToggleControl
@@ -45,7 +46,7 @@ export const getSharedReviewContentControls = ( attributes, setAttributes ) => {
 					} )
 				}
 			/>
-			{ attributes.showReviewRating && ! REVIEW_RATINGS_ENABLED && (
+			{ attributes.showReviewRating && ! reviewRatingsEnabled && (
 				<Notice
 					className="wc-block-base-control-notice"
 					isDismissible={ false }
@@ -108,33 +109,32 @@ export const getSharedReviewContentControls = ( attributes, setAttributes ) => {
 			/>
 			{ attributes.showReviewImage && (
 				<>
-					<ToggleButtonControl
+					<ToggleGroupControl
 						label={ __(
 							'Review image',
 							'woocommerce'
 						) }
 						value={ attributes.imageType }
-						options={ [
-							{
-								label: __(
-									'Reviewer photo',
-									'woocommerce'
-								),
-								value: 'reviewer',
-							},
-							{
-								label: __(
-									'Product',
-									'woocommerce'
-								),
-								value: 'product',
-							},
-						] }
 						onChange={ ( value ) =>
 							setAttributes( { imageType: value } )
 						}
-					/>
-					{ attributes.imageType === 'reviewer' && ! SHOW_AVATARS && (
+					>
+						<ToggleGroupControlOption
+							value="reviewer"
+							label={ __(
+								'Reviewer photo',
+								'woocommerce'
+							) }
+						/>
+						<ToggleGroupControlOption
+							value="product"
+							label={ __(
+								'Product',
+								'woocommerce'
+							) }
+						/>
+					</ToggleGroupControl>
+					{ attributes.imageType === 'reviewer' && ! showAvatars && (
 						<Notice
 							className="wc-block-base-control-notice"
 							isDismissible={ false }

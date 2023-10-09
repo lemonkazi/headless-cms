@@ -37,6 +37,15 @@ class WC_Shipping_Free_Shipping extends WC_Shipping_Method {
 	public $requires = '';
 
 	/**
+	 * Ignore discounts.
+	 *
+	 * If set, free shipping would be available based on pre-discount order amount.
+	 *
+	 * @var string
+	 */
+	public $ignore_discounts;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param int $instance_id Shipping method instance.
@@ -153,12 +162,11 @@ class WC_Shipping_Free_Shipping extends WC_Shipping_Method {
 		if ( in_array( $this->requires, array( 'min_amount', 'either', 'both' ), true ) ) {
 			$total = WC()->cart->get_displayed_subtotal();
 
-			if ( WC()->cart->display_prices_including_tax() ) {
-				$total = $total - WC()->cart->get_discount_tax();
-			}
-
 			if ( 'no' === $this->ignore_discounts ) {
 				$total = $total - WC()->cart->get_discount_total();
+				if ( WC()->cart->display_prices_including_tax() ) {
+					$total = $total - WC()->cart->get_discount_tax();
+				}
 			}
 
 			$total = NumberUtil::round( $total, wc_get_price_decimals() );
@@ -233,7 +241,7 @@ class WC_Shipping_Free_Shipping extends WC_Shipping_Method {
 				});
 
 				// Change while load.
-				$( '#woocommerce_free_shipping_requires' ).change();
+				$( '#woocommerce_free_shipping_requires' ).trigger( 'change' );
 				$( document.body ).on( 'wc_backbone_modal_loaded', function( evt, target ) {
 					if ( 'wc-modal-shipping-method-settings' === target ) {
 						wcFreeShippingShowHideMinAmountField( $( '#wc-backbone-modal-dialog #woocommerce_free_shipping_requires', evt.currentTarget ) );

@@ -28,13 +28,17 @@ class WC_Admin {
 		add_action( 'admin_init', array( $this, 'admin_redirects' ) );
 		add_action( 'admin_footer', 'wc_print_js', 25 );
 		add_filter( 'admin_footer_text', array( $this, 'admin_footer_text' ), 1 );
-		add_action( 'init', array( 'WC_Site_Tracking', 'init' ) );
 
 		// Disable WXR export of schedule action posts.
 		add_filter( 'action_scheduler_post_type_args', array( $this, 'disable_webhook_post_export' ) );
 
 		// Add body class for WP 5.3+ compatibility.
 		add_filter( 'admin_body_class', array( $this, 'include_admin_body_class' ), 9999 );
+
+		// Add body class for Marketplace and My Subscriptions pages.
+		if ( isset( $_GET['page'] ) && 'wc-addons' === $_GET['page'] ) {
+			add_filter( 'admin_body_class', array( 'WC_Admin_Addons', 'filter_admin_body_classes' ) );
+		}
 	}
 
 	/**
@@ -62,12 +66,6 @@ class WC_Admin {
 		include_once __DIR__ . '/class-wc-admin-importers.php';
 		include_once __DIR__ . '/class-wc-admin-exporters.php';
 
-		include_once WC_ABSPATH . 'includes/tracks/class-wc-tracks.php';
-		include_once WC_ABSPATH . 'includes/tracks/class-wc-tracks-event.php';
-		include_once WC_ABSPATH . 'includes/tracks/class-wc-tracks-client.php';
-		include_once WC_ABSPATH . 'includes/tracks/class-wc-tracks-footer-pixel.php';
-		include_once WC_ABSPATH . 'includes/tracks/class-wc-site-tracking.php';
-
 		// Help Tabs.
 		if ( apply_filters( 'woocommerce_enable_admin_help_tab', true ) ) {
 			include_once __DIR__ . '/class-wc-admin-help.php';
@@ -94,6 +92,7 @@ class WC_Admin {
 		switch ( $screen->id ) {
 			case 'dashboard':
 			case 'dashboard-network':
+				include __DIR__ . '/class-wc-admin-dashboard-setup.php';
 				include __DIR__ . '/class-wc-admin-dashboard.php';
 				break;
 			case 'options-permalink':
@@ -151,7 +150,19 @@ class WC_Admin {
 	public function prevent_admin_access() {
 		$prevent_access = false;
 
-		if ( apply_filters( 'woocommerce_disable_admin_bar', true ) && ! is_ajax() && isset( $_SERVER['SCRIPT_FILENAME'] ) && basename( sanitize_text_field( wp_unslash( $_SERVER['SCRIPT_FILENAME'] ) ) ) !== 'admin-post.php' ) {
+		// Do not interfere with admin-post or admin-ajax requests.
+		$exempted_paths = array( 'admin-post.php', 'admin-ajax.php' );
+
+		if (
+			/**
+			 * This filter is documented in ../wc-user-functions.php
+			 *
+			 * @since 3.6.0
+			 */
+			apply_filters( 'woocommerce_disable_admin_bar', true )
+			&& isset( $_SERVER['SCRIPT_FILENAME'] )
+			&& ! in_array( basename( sanitize_text_field( wp_unslash( $_SERVER['SCRIPT_FILENAME'] ) ) ), $exempted_paths, true )
+		) {
 			$has_cap     = false;
 			$access_caps = array( 'edit_posts', 'manage_woocommerce', 'view_admin_dashboard' );
 
@@ -236,7 +247,7 @@ class WC_Admin {
 					'<a href="https://wordpress.org/support/plugin/woocommerce/reviews?rate=5#new-post" target="_blank" class="wc-rating-link" aria-label="' . esc_attr__( 'five star', 'woocommerce' ) . '" data-rated="' . esc_attr__( 'Thanks :)', 'woocommerce' ) . '">&#9733;&#9733;&#9733;&#9733;&#9733;</a>'
 				);
 				wc_enqueue_js(
-					"jQuery( 'a.wc-rating-link' ).click( function() {
+					"jQuery( 'a.wc-rating-link' ).on( 'click', function() {
 						jQuery.post( '" . WC()->ajax_url() . "', { action: 'woocommerce_rated' } );
 						jQuery( this ).parent().text( jQuery( this ).data( 'rated' ) );
 					});"
@@ -269,7 +280,7 @@ class WC_Admin {
 	 *
 	 * @since 3.6.2
 	 *
-	 * @param array $args Scehduled action post type registration args.
+	 * @param array $args Scheduled action post type registration args.
 	 *
 	 * @return array
 	 */
