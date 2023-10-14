@@ -69,3 +69,36 @@ if ( version_compare( get_bloginfo( 'version' ), '4.7.3', '>=' ) && ( is_admin()
  * Note: Do not add any custom code here. Please use a custom plugin so that your customizations aren't lost during updates.
  * https://github.com/woocommerce/theme-customisations
  */
+ 
+ add_action( 'woocommerce_load_cart_from_session', function () {
+
+	// Bail if there isn't any data
+	if ( ! isset( $_GET['session_id'] ) ) {
+		return;
+	}
+
+	$session_id = sanitize_text_field( $_GET['session_id'] );
+
+	try {
+
+		$handler      = new \WC_Session_Handler();
+		$session_data = $handler->get_session( $session_id );
+
+    // We were passed a session ID, yet no session was found. Let's log this and bail.
+		if ( empty( $session_data ) ) {
+			throw new \Exception( 'Could not locate WooCommerce session on checkout' );
+		}
+
+    // Go get the session instance (WC_Session) from the Main WC Class
+		$session = WC()->session;
+
+    // Set the session variable
+		foreach ( $session_data as $key => $value ) {
+			$session->set( $key, unserialize( $value ) );
+		}
+
+	} catch ( \Exception $exception ) {
+		ErrorHandling::capture( $exception );
+	}
+
+} );
