@@ -26,8 +26,6 @@ const AddToCart = (props) => {
     const {data, refetch} = useQuery(GET_CART, {
             notifyOnNetworkStatusChange: true,
             onCompleted: () => {
-                console.log("============");
-                console.log(data);
                 // Update cart in the localStorage.
                 const updatedCart = getFormattedCart(data);
                 localStorage.setItem('woo-next-cart', JSON.stringify(updatedCart));
@@ -48,8 +46,6 @@ const AddToCart = (props) => {
         },
         onCompleted: () => {
             console.log("Add to cart completed");
-            console.log("============");
-            console.log(data);
             // On Success:
             // 1. Make the GET_CART query to update the cart with new values in React context.
             refetch();

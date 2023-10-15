@@ -1,10 +1,57 @@
-import fetch from 'node-fetch';
+//import fetch from 'node-fetch';
 import { HttpLink } from 'apollo-link-http';
-import { ApolloClient, ApolloLink, InMemoryCache, createHttpLink } from "@apollo/client";
+import {from, ApolloClient, ApolloLink, InMemoryCache, createHttpLink } from "@apollo/client";
 
-// import { ApolloClient } from 'apollo-client';
-// import { HttpLink } from 'apollo-link-http';
-// import { ApolloLink } from 'apollo-link';
+import { setContext } from '@apollo/client/link/context';
+
+import { GraphQLClient } from 'graphql-request';
+import { GetCartDocument } from './graphql'
+
+// Session Token Management.
+async function fetchSessionToken() {
+  let sessionToken;
+  try {
+    const graphQLClient = new GraphQLClient(process.env.GRAPHQL_ENDPOINT);
+
+    const cartData = await graphQLClient.request(GetCartDocument);
+
+    // If user doesn't have an account return accountNeeded flag.
+    sessionToken = cartData?.cart?.sessionToken;
+
+    if (!sessionToken) {
+      throw new Error('Failed to retrieve a new session token');
+    }
+  } catch (err) {
+    console.error(err);
+  }
+
+  return sessionToken;
+}
+export async function getSessionToken(forceFetch = false) {
+  let sessionToken;
+
+  // Check if localStorage is available (i.e., if the code is running in a browser).
+  if (typeof localStorage !== 'undefined') {
+    sessionToken = localStorage.getItem(process.env.SESSION_TOKEN_LS_KEY);
+  }
+	if (!sessionToken || forceFetch) {
+    sessionToken = await fetchSessionToken();
+  }
+  return sessionToken;
+}
+function createSessionLink() {
+  return setContext(async (operation) => {
+    const headers = {};
+    const sessionToken = await getSessionToken();
+    if (sessionToken) {
+      headers['woocommerce-session'] = `Session ${sessionToken}`;
+
+      return { headers };
+    }
+
+    return {};
+  });
+}
 /**
  * Middleware operation
  * If we have a session token in localStorage, add it to the GraphQL request as a Session header.
@@ -69,18 +116,26 @@ export const afterware = new ApolloLink( ( operation, forward ) => {
 const httpLink = new HttpLink({
   uri: 'http://localhost:8080/graphql',
 });
-const client = new ApolloClient({
-  link: middleware.concat(afterware.concat(httpLink)),
-  cache: new InMemoryCache(),
-  clientState: {},
-});
 // Apollo GraphQL client.
+const client = new ApolloClient({
+	link: middleware.concat( afterware.concat( createHttpLink({
+		uri: `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/graphql`,
+		//fetch: fetch
+	}) ) ),
+	cache: new InMemoryCache(),
+});
 // const client = new ApolloClient({
-// 	link: middleware.concat( afterware.concat( createHttpLink({
-// 		uri: `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/graphql`,
-// 		fetch: fetch
-// 	}) ) ),
-// 	cache: new InMemoryCache(),
+//   link: from([
+//     createSessionLink(),
+//     //createErrorLink(),
+//     //createUpdateLink(),
+//     new HttpLink({ uri: 'http://localhost:8080/graphql' }),
+//   ]),
+//   cache: new InMemoryCache(),
 // });
-
+//createSessionLink()
+// const client = new ApolloClient({
+//   uri: 'http://localhost:8080/graphql', // Replace with your WordPress GraphQL endpoint
+//   cache: new InMemoryCache(),
+// });
 export default client;
